@@ -1,0 +1,182 @@
+/* ==========================================================================
+   index.css — Global Styles & Design Tokens untuk Gudang RTB
+   ==========================================================================
+   File ini adalah fondasi visual seluruh aplikasi.
+   Semua "token" (warna, spasi, font) didefinisikan di :root sebagai CSS Variables.
+   Kenapa CSS Variables? Karena bisa diubah secara dinamis via JavaScript,
+   dan memudahkan konsistensi di seluruh komponen.
+   ========================================================================== */
+
+/* --- Google Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* --- Design Tokens (CSS Custom Properties) --- */
+:root {
+  /* Warna utama — menggunakan HSL untuk lebih mudah dibuat variasi gelap/terang */
+  --color-primary:        hsl(217, 91%, 60%);   /* Biru utama */
+  --color-primary-dark:   hsl(217, 91%, 48%);   /* Hover state */
+  --color-success:        hsl(142, 71%, 45%);   /* Hijau: stok cukup */
+  --color-warning:        hsl(38,  92%, 50%);   /* Kuning: stok hampir habis */
+  --color-danger:         hsl(0,   84%, 60%);   /* Merah: error / stok habis */
+
+  /* Background — dark mode sebagai default (mobile-first, hemat baterai OLED) */
+  --bg-base:              hsl(222, 47%, 8%);    /* Background paling gelap */
+  --bg-surface:           hsl(222, 40%, 13%);   /* Card / panel */
+  --bg-surface-hover:     hsl(222, 40%, 17%);   /* Card hover */
+  --bg-border:            hsl(222, 30%, 22%);   /* Border subtle */
+
+  /* Teks */
+  --text-primary:         hsl(210, 40%, 96%);   /* Teks utama, hampir putih */
+  --text-secondary:       hsl(215, 20%, 65%);   /* Teks sekunder, abu-abu */
+  --text-muted:           hsl(215, 15%, 45%);   /* Teks paling redup */
+
+  /* Spacing — skala 4px */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Border Radius */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-size-sm:   0.875rem;  /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-lg:   1.125rem;  /* 18px */
+  --font-size-xl:   1.25rem;   /* 20px */
+  --font-size-2xl:  1.5rem;    /* 24px */
+  --font-size-3xl:  1.875rem;  /* 30px */
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.5);
+
+  /* Transitions */
+  --transition-fast:   150ms ease;
+  --transition-normal: 250ms ease;
+}
+
+/* --- CSS Reset Modern --- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  /* Mencegah teks terlalu kecil di iOS saat landscape */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  background-color: var(--bg-base);
+  line-height: 1.6;
+  min-height: 100vh;
+  /* Antialiasing untuk teks yang lebih tajam */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img, video {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* ==========================================================================
+   Utility & Layout Classes
+   ========================================================================== */
+
+/* App Shell */
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--bg-border);
+  padding: var(--space-4) var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.app-header h1 {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.app-header p {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.app-main {
+  flex: 1;
+  padding: var(--space-8) var(--space-6);
+  max-width: 480px;     /* Mobile-first max-width */
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Setup Status Card */
+.setup-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.status-dot--success {
+  background: var(--color-success);
+  /* Efek "breathing" — menandakan sistem aktif */
+  animation: pulse-success 2s infinite;
+}
+
+@keyframes pulse-success {
+  0%, 100% { box-shadow: 0 0 0 0 hsla(142, 71%, 45%, 0.5); }
+  50%       { box-shadow: 0 0 0 6px hsla(142, 71%, 45%, 0); }
+}
+
+.info-text {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
