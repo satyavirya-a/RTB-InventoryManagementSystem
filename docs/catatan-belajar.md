@@ -198,6 +198,116 @@ Setelah `npm run dev` berjalan, coba:
 
 ---
 
+### Git Workflow — Cara Kita Menyimpan Perubahan
+
+#### Kenapa Commit Dipisah-pisah?
+
+Di Fase 1 ini, kita membuat **5 commit terpisah**, bukan 1 commit besar. Ini bukan sekadar gaya — ada alasan teknis yang penting:
+
+```
+1 commit besar:  "setup semua hal di Fase 1"
+                 → Kalau ada bug, sulit tahu PERUBAHAN MANA yang jadi penyebab
+
+5 commit kecil:  commit per unit perubahan
+                 → Kalau ada bug, bisa langsung "git revert" ke commit spesifik
+                    tanpa menghapus perubahan lain yang tidak berkaitan
+```
+
+Analogi: bayangkan dokumen Word. Fitur "Track Changes" per paragraf jauh lebih berguna daripada satu entry "dokumen diubah".
+
+---
+
+#### Format Conventional Commits
+
+Kita menggunakan standar [Conventional Commits](https://www.conventionalcommits.org/) untuk menulis pesan commit:
+
+```
+<type>: <deskripsi singkat>
+```
+
+| Type | Kapan dipakai | Contoh |
+|---|---|---|
+| `feat:` | Fitur atau fungsionalitas baru | `feat: buat entry point React` |
+| `fix:` | Perbaikan bug | `fix: stok tidak update saat checkout` |
+| `chore:` | Setup, konfigurasi, tidak ada kode logika | `chore: init project React + Vite` |
+| `docs:` | Perubahan dokumentasi saja | `docs: tambah catatan-belajar.md` |
+| `style:` | Perubahan tampilan/CSS saja | `style: setup design system global` |
+| `refactor:` | Restrukturisasi kode tanpa ubah perilaku | `refactor: pisah CartContext ke file sendiri` |
+
+**Contoh commit yang buruk (jangan ditiru):**
+```bash
+git commit -m "update"           # ← Apa yang di-update?
+git commit -m "fix bug"          # ← Bug apa?
+git commit -m "WIP"              # ← Work in Progress tidak boleh ke main branch
+```
+
+---
+
+#### Cara Membaca Git Log
+
+```bash
+git log --oneline
+```
+
+Output yang akan kamu lihat:
+```
+fdf7f1c docs: tambah catatan-belajar.md dan implementation-plan.md
+91bdfee style: setup design system global (CSS Variables, dark mode, Inter font)
+6c6f81f feat: buat entry point React (main.jsx dan App.jsx)
+9d052f1 chore: setup struktur folder src (components, pages, lib, hooks)
+d7ce680 chore: init project React + Vite
+1bfb22e Initial commit
+```
+
+- **7 karakter pertama** (`fdf7f1c`) = hash commit — ID unik setiap snapshot
+- Dibaca dari **bawah ke atas** = urutan kronologis (terlama di bawah)
+
+---
+
+#### Riwayat Commit Fase 1 (Sudah di-push ke GitHub)
+
+| Hash | Type | Pesan | File yang Diubah |
+|---|---|---|---|
+| `d7ce680` | `chore` | init project React + Vite | `package.json`, `vite.config.js`, `index.html`, `.gitignore`, `.env.example` |
+| `9d052f1` | `chore` | setup struktur folder src | `src/components/`, `src/pages/`, `src/lib/`, `src/hooks/` |
+| `6c6f81f` | `feat` | buat entry point React | `src/main.jsx`, `src/App.jsx` |
+| `91bdfee` | `style` | setup design system global | `src/index.css` |
+| `fdf7f1c` | `docs` | tambah catatan-belajar.md dan implementation-plan.md | `docs/catatan-belajar.md`, `docs/implementation-plan.md` |
+
+> Semua commit di atas sudah tersimpan di:
+> **https://github.com/satyavirya-a/RTB-InventoryManagementSystem**
+
+---
+
+#### Perintah Git Dasar yang Wajib Hafal
+
+```bash
+# Lihat status file (ada perubahan apa saja?)
+git status
+
+# Tambahkan file ke "staging area" (siap di-commit)
+git add nama-file.js        # file spesifik
+git add src/                # seluruh folder
+git add .                   # semua file yang berubah
+
+# Simpan snapshot (commit)
+git commit -m "type: pesan singkat"
+
+# Kirim ke GitHub
+git push origin main
+
+# Lihat riwayat commit (ringkas)
+git log --oneline
+
+# Lihat perubahan yang belum di-stage
+git diff
+
+# Lihat perubahan yang sudah di-stage (sudah git add, belum commit)
+git diff --staged
+```
+
+---
+
 ## Fase 2 — Koneksi Supabase
 
 *(Akan diisi setelah Fase 2 selesai)*
