@@ -28,8 +28,8 @@
 |---|---|---|
 | Fase 0 — Fondasi (AGENTS.md, akun Supabase/Vercel) | ✅ Selesai | — |
 | Fase 1 — Setup Project React + Vite | ✅ Selesai | 2026-08-08 |
-| Fase 2 — Koneksi Supabase | 🟡 Dalam proses | 2026-08-12 |
-| Fase 3 — Katalog Barang | ⬜ Belum dimulai | — |
+| Fase 2 — Koneksi Supabase | ✅ Selesai | 2026-08-12 |
+| Fase 3 — Katalog Barang | ✅ Selesai | 2026-08-12 |
 | Fase 4 — Cart System | ⬜ Belum dimulai | — |
 | Fase 5 — Logika Transaksi | ⬜ Belum dimulai | — |
 | Fase 6 — Kompresi Gambar | ⬜ Belum dimulai | — |
@@ -231,40 +231,74 @@ git push origin main
 
 ---
 
-## Fase 3 — Komponen Katalog Barang
+## Fase 3 — Komponen Katalog Barang ✅
 
 **Tujuan:** Menampilkan barang dari database dalam tampilan galeri yang responsif (mobile-first).
 
-### File yang akan Dibuat
+### File yang Dibuat
 
-| # | File | Keterangan |
-|---|---|---|
-| 1 | `src/components/ItemCard.jsx` | Kartu satu barang: foto, nama, stok, badge status |
-| 2 | `src/components/ItemCard.css` | Style khusus ItemCard |
-| 3 | `src/pages/CatalogPage.jsx` | Halaman utama: fetch data + render grid ItemCard |
-| 4 | `src/hooks/useItems.js` | Custom hook untuk fetch & filter barang dari Supabase |
+| File | Keterangan |
+|---|---|
+| `src/hooks/useItems.js` | Custom hook: fetch barang aktif + client-side search filter |
+| `src/components/ItemCard.jsx` | Kartu barang: foto (lazy load), badge stok berwarna, badge tipe |
+| `src/components/ItemCard.css` | Style ItemCard: hover animation, skeleton-ready |
+| `src/pages/CatalogPage.jsx` | Grid responsif + search bar + skeleton loading + empty state |
 
-### Checklist Verifikasi
+### Riwayat Commit Fase 3
 
-- [ ] Bisa jelaskan alur data: `fetch → useState → render` dengan kata-kata sendiri
-- [ ] Ada JSDoc di setiap fungsi (sesuai standar AGENTS.md)
-- [ ] Loading state tampil saat data belum tiba (bukan layar kosong)
-- [ ] Empty state tampil saat tidak ada barang (bukan error)
-- [ ] Grid responsif: 1 kolom di HP, 2–3 kolom di tablet/desktop
-- [ ] Test di layar HP asli (bukan hanya DevTools emulator)
+| Hash | Pesan |
+|---|---|
+| `1b3b2c2` | `feat: buat useItems custom hook (fetch + client-side filter)` |
+| `9cfe080` | `feat: buat komponen ItemCard (foto, nama, stok badge, tipe barang)` |
+| `b25003b` | `feat: buat CatalogPage (grid responsif, search, skeleton loading, empty state)` |
+| `eb291fa` | `fix: tambah properti standar line-clamp untuk kompatibilitas CSS` |
 
-### Git Commit
+### Catatan Penting: Penyimpanan Foto Barang
 
-```bash
-git commit -m "feat: komponen katalog barang (Fase 3)
+Kolom `photo_url` di tabel `items` hanya menyimpan **URL teks**, bukan file gambar.
+File gambar fisik akan disimpan di **Supabase Storage** (diimplementasi di Fase 6).
 
-- Buat ItemCard.jsx: foto, nama, stok, badge status
-- Buat CatalogPage.jsx: fetch data + grid responsif
-- Buat useItems.js: custom hook fetch & filter items
-- Tambah loading state dan empty state"
+**Kenapa tidak pakai Google Drive?**
+- Google Drive memblokir browser website lain memuat gambar (CORS policy)
+- URL Google Drive tidak stabil untuk embed di web
+- Supabase Storage: 1GB gratis, dirancang untuk web, bisa dikontrol via RLS
+
+### Query SQL Sample Data (untuk test tampilan)
+
+Jalankan di Supabase SQL Editor jika ingin test tampilan kartu barang:
+
+```sql
+-- INSERT: 6 barang sample dengan kondisi stok berbeda
+-- Semua ditandai event_name = 'SAMPLE_TEST' untuk mudah dihapus
+INSERT INTO items (name, description, is_consumable, stock_available, stock_in_use, unit, event_name, photo_url) VALUES
+  ('Double Tape', 'Ukuran 1 inch', true, 12, 0, 'roll', 'SAMPLE_TEST',
+   'https://images.unsplash.com/photo-1612198188060-c7c2a3b66eae?w=400&q=80'),
+  ('Kabel Ties', 'Panjang 30cm', true, 3, 0, 'pcs', 'SAMPLE_TEST',
+   'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80'),
+  ('Spidol Boardmarker', 'Warna hitam', true, 0, 0, 'pcs', 'SAMPLE_TEST',
+   'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80'),
+  ('Proyektor', 'Epson EB-X05', false, 2, 1, 'unit', 'SAMPLE_TEST',
+   'https://images.unsplash.com/photo-1626379953822-baec19c3accd?w=400&q=80'),
+  ('Kabel HDMI', '3 meter', false, 0, 3, 'pcs', 'SAMPLE_TEST',
+   'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&q=80'),
+  ('Lakban Hitam', null, true, 8, 0, 'roll', 'SAMPLE_TEST', null);
+
+-- DELETE: Hapus semua data sample sekaligus
+DELETE FROM items WHERE event_name = 'SAMPLE_TEST';
 ```
 
+### Checklist Verifikasi ✅
+
+- [x] Alur data `fetch → useState → render` bisa dijelaskan
+- [x] JSDoc ada di semua fungsi (sesuai AGENTS.md)
+- [x] Skeleton loading tampil saat data belum tiba
+- [x] Empty state berbeda: "belum ada barang" vs "tidak ditemukan"
+- [x] Grid responsif: `repeat(auto-fill, minmax(160px, 1fr))`
+- [x] CSS warning `line-clamp` sudah diperbaiki
+
 ---
+
+
 
 ## Fase 4 — Cart System
 

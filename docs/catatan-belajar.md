@@ -580,7 +580,171 @@ Aplikasi akan otomatis test koneksi dan menampilkan:
 
 ## Fase 3 — Katalog Barang
 
-*(Akan diisi setelah Fase 3 selesai)*
+### Smart Component vs Dumb Component
+
+Ini pola arsitektur React yang sangat penting dan sering ditanyakan di interview:
+
+```
+CatalogPage  ← "Smart" / Container component
+  │             - Mengambil data (fetch, state)
+  │             - Mengatur logika
+  │             - Tidak terlalu peduli tampilan detail
+  │
+  └─ ItemCard ← "Dumb" / Presentational component
+                - TIDAK fetch data sendiri
+                - Hanya terima data lewat props
+                - Fokus 100% ke tampilan
+```
+
+**Kenapa dipisah seperti ini?**
+- `ItemCard` bisa dipakai ulang di halaman lain (misal: halaman riwayat transaksi)
+- Gampang di-test: cukup kasih props berbeda, lihat tampilan berubah
+- `CatalogPage` bisa diganti logika fetch-nya tanpa sentuh `ItemCard` sama sekali
+
+---
+
+### Custom Hook — useItems.js
+
+```js
+// Sebelum ada custom hook:
+function CatalogPage() {
+  const [items, setItems] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  // ... 20 baris logika fetch di sini ...
+  return <div>...</div>
+}
+
+// Setelah ada custom hook:
+function CatalogPage() {
+  const { items, isLoading, error, searchQuery, setSearchQuery } = useItems()
+  return <div>...</div>  // jauh lebih bersih!
+}
+```
+
+**Aturan hook:**
+1. Nama harus diawali `use` → `useItems`, `useCart`, `useAuth`
+2. Hanya boleh dipanggil di level atas komponen (tidak di dalam `if`, `for`, dll)
+3. Bisa return apa saja: nilai, fungsi, objek, array
+
+**useCallback** — kenapa dipakai di `fetchItems`?
+
+```js
+const fetchItems = useCallback(async () => {
+  // ... fetch logic
+}, []) // dependency array kosong = fungsi tidak pernah dibuat ulang
+```
+
+Tanpa `useCallback`, setiap kali komponen re-render, `fetchItems` dibuat ulang sebagai
+fungsi baru. Karena `fetchItems` ada di dependency array `useEffect`, ini akan
+memicu `useEffect` lagi → infinite loop! `useCallback` memastikan referensi fungsi
+tetap sama selama dependency tidak berubah.
+
+---
+
+### CSS Grid Auto-Fill — Layout Responsif Tanpa Media Query
+
+```css
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+```
+
+Cara bacanya:
+- `repeat(auto-fill, ...)` → isi kolom sebanyak yang muat
+- `minmax(160px, 1fr)` → tiap kolom minimum 160px, maksimum 1 bagian ruang tersisa
+
+Hasilnya:
+```
+HP kecil (320px):   [ card1 ] [ card2 ]           ← 2 kolom
+HP besar (414px):   [ card1 ] [ card2 ]            ← 2 kolom
+Tablet (768px):     [ card1 ] [ card2 ] [ card3 ]  ← 3+ kolom
+Desktop (1200px):   [ c1 ] [ c2 ] [ c3 ] [ c4 ] [ c5 ]
+```
+
+Ini jauh lebih simpel daripada menulis banyak media query `@media (min-width: ...)` manual.
+
+---
+
+### Skeleton Loading — UX yang Lebih Baik dari Spinner
+
+```
+Spinner biasa:         Skeleton loading:
+                       ┌─────────────┐  ┌─────────────┐
+   ⟳                   │ ░░░░░░░░░░  │  │ ░░░░░░░░░░  │
+                       │ ░░░░░░      │  │ ░░░░░░      │
+   Pengguna bingung    │ ░░░ ░░░░░   │  │ ░░░ ░░░░░   │
+   berapa lama lagi?  └─────────────┘  └─────────────┘
+                       Pengguna tahu ada 2 card yang sedang load
+```
+
+Efek **shimmer** dibuat dengan CSS gradient yang bergerak:
+```css
+.skeleton {
+  background: linear-gradient(90deg, #gelap 0%, #terang 50%, #gelap 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }  /* mulai dari kanan */
+  100% { background-position: -200% 0; } /* gerak ke kiri */
+}
+```
+
+---
+
+### Foto Barang — URL vs File
+
+Kolom `photo_url` hanya menyimpan **string URL**, bukan file gambar.
+
+```
+Database:   photo_url = "https://xyz.supabase.co/storage/v1/..."
+                                     ↑
+                            Ini hanya teks!
+
+File JPG-nya ada di: Supabase Storage (akan diimplementasi Fase 6)
+```
+
+**Kenapa tidak pakai Google Drive?**
+Google Drive punya **CORS policy** yang memblokir website lain memuat gambarnya.
+Gambar Drive akan tampil sebagai 🖼️ broken di browser — bukan solusi yang bisa diandalkan.
+
+Untuk sementara testing, bisa pakai foto dari Unsplash (tidak ada CORS):
+```
+https://images.unsplash.com/photo-<ID>?w=400&q=80
+```
+
+---
+
+### SQL Sample Data — Pattern Tag untuk Easy Cleanup
+
+Kalau perlu insert data testing, tandai dengan field khusus agar bisa dihapus sekaligus:
+
+```sql
+-- INSERT dengan "tag" di field event_name
+INSERT INTO items (..., event_name) VALUES
+  ('Double Tape', ..., 'SAMPLE_TEST'),
+  ('Proyektor',   ..., 'SAMPLE_TEST');
+
+-- DELETE semua sekaligus pakai tag yang sama
+DELETE FROM items WHERE event_name = 'SAMPLE_TEST';
+```
+
+**Pattern ini jauh lebih aman** daripada DELETE berdasarkan id satu per satu,
+dan tidak berisiko menghapus data production secara tidak sengaja.
+
+---
+
+### Tampilan Card yang Ditest
+
+| Barang | Kondisi | Yang Terlihat |
+|---|---|---|
+| Double Tape (stok 12) | Banyak | Badge hijau, tombol aktif |
+| Kabel Ties (stok 3) | Sedikit ≤3 | Badge kuning "Sisa 3" |
+| Spidol (stok 0) | Habis | Badge merah, tombol disabled |
+| Proyektor (non-consumable) | Ada yang dipinjam | Badge biru "Pinjam" + "1 dipinjam" |
+| Lakban (tanpa foto) | Tidak ada foto | Placeholder emoji 📦 |
 
 ---
 
