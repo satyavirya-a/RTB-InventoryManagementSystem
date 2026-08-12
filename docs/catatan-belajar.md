@@ -461,6 +461,112 @@ items                    transactions                transaction_details
 
 ---
 
+### Row Level Security (RLS) — Keamanan di Level Baris Database
+
+#### Apa itu RLS?
+
+Saat kamu menjalankan SQL schema di Supabase, akan muncul popup:
+> *"This query creates tables without enabling Row Level Security. Clients using anon or authenticated keys may be able to access these tables."*
+
+Ini bukan error — ini **peringatan keamanan** dari Supabase.
+
+**RLS** (Row Level Security) adalah lapisan keamanan di level PostgreSQL yang mengatur:
+- Siapa boleh **SELECT** (membaca) baris data tertentu?
+- Siapa boleh **INSERT** (menambah) data baru?
+- Siapa boleh **UPDATE** atau **DELETE** data?
+
+**Analogi:**
+```
+Tanpa RLS:  Gudang terbuka — siapa pun yang punya kartu masuk (anon key)
+            bisa ambil dan taruh barang sesukanya
+
+Dengan RLS: Gudang berisi loker. Kartu masuk hanya membuka loker tertentu.
+            Tanpa "policy" yang mengizinkan, semua loker terkunci.
+```
+
+---
+
+#### Kenapa Pilih "Run and enable RLS"?
+
+Saat klik tombol di popup, **selalu pilih "Run and enable RLS"**.
+
+Alasan:
+1. Lebih aman — data tidak otomatis terbuka untuk siapa pun
+2. Supabase sangat menyarankan ini untuk semua tabel
+3. Kita tetap bisa atur akses lewat **policy** yang fleksibel
+
+Kalau pilih "Run without RLS":
+- Semua baris data bisa dibaca dan diubah siapa pun yang punya anon key
+- Termasuk orang yang tidak ada hubungannya dengan event kamu
+
+---
+
+#### Setelah RLS Aktif — Semua Query Diblokir!
+
+Ini yang bikin bingung pemula: setelah RLS diaktifkan, **semua query langsung diblokir secara default**.
+Bahkan query SELECT sederhana pun akan mengembalikan array kosong `[]` tanpa error — seolah data tidak ada.
+
+Solusinya: tambahkan **Policy** yang mengizinkan akses yang kita inginkan.
+
+---
+
+#### Anatomi RLS Policy
+
+```sql
+CREATE POLICY "nama policy yang deskriptif"
+  ON nama_tabel
+  FOR SELECT | INSERT | UPDATE | DELETE  ← operasi yang diizinkan
+  USING (kondisi);                        ← untuk SELECT & UPDATE
+  -- atau --
+  WITH CHECK (kondisi);                   ← untuk INSERT & UPDATE
+```
+
+**Perbedaan `USING` vs `WITH CHECK`:**
+| Klausa | Dipakai untuk | Arti |
+|---|---|---|
+| `USING (true)` | SELECT, UPDATE, DELETE | "Izinkan baca/ubah baris ini jika kondisi terpenuhi" |
+| `WITH CHECK (true)` | INSERT, UPDATE | "Izinkan tulis data baru jika kondisi terpenuhi" |
+
+`USING (true)` = kondisi selalu true = izinkan semua baris.
+
+---
+
+#### Strategi Policy di Project Ini
+
+**Fase 2–6 (MVP/Development) — Policy Longgar:**
+```sql
+-- Semua orang boleh baca
+CREATE POLICY "Public dapat membaca items" ON items FOR SELECT USING (true);
+
+-- Semua orang boleh tulis (sementara)
+CREATE POLICY "Public dapat insert items"  ON items FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public dapat update items"  ON items FOR UPDATE USING (true);
+```
+
+**Fase 7 (Produksi) — Policy Ketat:**
+```sql
+-- Hanya user yang sudah login yang bisa mengubah data
+CREATE POLICY "Authenticated dapat insert items"
+  ON items FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+```
+
+`auth.role()` adalah fungsi bawaan Supabase yang mengembalikan role user saat ini:
+- `'anon'` → belum login
+- `'authenticated'` → sudah login
+
+---
+
+#### Cara Menjalankan Policy di Supabase
+
+Setelah schema tabel berhasil dibuat:
+1. Di SQL Editor → klik **"New query"**
+2. Copy-paste section **"6. ROW LEVEL SECURITY"** dari `docs/sql-schema.sql`
+3. Klik **Run**
+4. Cek: Dashboard → **Authentication → Policies** → pastikan policy muncul di tiap tabel
+
+---
+
 ### Cara Verifikasi Koneksi
 
 Setelah `.env.local` diisi, jalankan `npm run dev` dan buka browser ke `http://localhost:5173`.

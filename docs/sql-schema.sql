@@ -215,7 +215,97 @@ COMMENT ON FUNCTION process_checkout_transaction IS
 
 
 -- -----------------------------------------------------------------------------
--- 6. DATA SAMPLE (opsional — untuk testing awal)
+-- 6. ROW LEVEL SECURITY (RLS) POLICIES
+--    RLS mengatur siapa boleh baca/tulis data di level baris database.
+--
+--    KONTEKS:
+--    Saat menjalankan CREATE TABLE di Supabase, akan muncul warning:
+--    "This query creates tables without enabling Row Level Security"
+--    → Pilih "Run and enable RLS" (lebih aman).
+--
+--    Setelah RLS aktif, SEMUA query diblokir secara default.
+--    Kita perlu mendefinisikan "policy" untuk mengizinkan akses yang kita inginkan.
+--
+--    STRATEGI MVP (Fase 1-6):
+--    Policy longgar — semua orang boleh baca dan tulis.
+--    Ini cukup untuk development dan testing internal dengan 60 panitia.
+--
+--    STRATEGI PRODUKSI (Fase 7+):
+--    Policy diperketat — INSERT/UPDATE hanya untuk user yang sudah login.
+--    Lihat docs/sql-rls-policies.sql (dibuat di Fase 7).
+--
+--    CARA MENJALANKAN:
+--    Jalankan section ini di SQL Editor SETELAH schema di atas berhasil dijalankan.
+-- -----------------------------------------------------------------------------
+
+-- === TABEL: items ===
+
+-- Siapa pun (termasuk user yang belum login) bisa membaca katalog barang
+CREATE POLICY "Public dapat membaca items"
+  ON items
+  FOR SELECT
+  USING (true);
+
+-- Siapa pun bisa menambah barang baru (MVP — diperketat di Fase 7)
+CREATE POLICY "Public dapat insert items"
+  ON items
+  FOR INSERT
+  WITH CHECK (true);
+
+-- Siapa pun bisa mengubah stok barang (MVP — diperketat di Fase 7)
+-- Perubahan stok yang BENAR dilakukan via RPC function, bukan langsung UPDATE.
+-- Policy ini dibutuhkan agar RPC function bisa mengeksekusi UPDATE.
+CREATE POLICY "Public dapat update items"
+  ON items
+  FOR UPDATE
+  USING (true);
+
+
+-- === TABEL: transactions ===
+
+-- Siapa pun bisa membaca riwayat transaksi
+CREATE POLICY "Public dapat membaca transactions"
+  ON transactions
+  FOR SELECT
+  USING (true);
+
+-- Siapa pun bisa membuat transaksi baru (MVP — diperketat di Fase 7)
+CREATE POLICY "Public dapat insert transactions"
+  ON transactions
+  FOR INSERT
+  WITH CHECK (true);
+
+
+-- === TABEL: transaction_details ===
+
+-- Siapa pun bisa membaca detail transaksi
+CREATE POLICY "Public dapat membaca transaction_details"
+  ON transaction_details
+  FOR SELECT
+  USING (true);
+
+-- Siapa pun bisa menambah detail transaksi (MVP — diperketat di Fase 7)
+CREATE POLICY "Public dapat insert transaction_details"
+  ON transaction_details
+  FOR INSERT
+  WITH CHECK (true);
+
+
+-- -----------------------------------------------------------------------------
+-- CATATAN KEAMANAN:
+--
+-- Policy di atas sengaja longgar untuk kemudahan development.
+-- Di Fase 7 (Autentikasi), policy INSERT/UPDATE akan diubah menjadi:
+--
+--   WITH CHECK (auth.role() = 'authenticated')
+--
+-- Artinya hanya user yang sudah login yang bisa melakukan perubahan data.
+-- SELECT tetap public karena panitia perlu melihat katalog sebelum login.
+-- -----------------------------------------------------------------------------
+
+
+-- -----------------------------------------------------------------------------
+-- 7. DATA SAMPLE (opsional — untuk testing awal)
 --    Hapus atau comment section ini jika tidak dibutuhkan
 -- -----------------------------------------------------------------------------
 -- INSERT INTO items (name, description, is_consumable, stock_available, unit, event_name)
@@ -224,3 +314,4 @@ COMMENT ON FUNCTION process_checkout_transaction IS
 --   ('Kabel Ties', '30cm', true, 50, 'pcs', 'Event A'),
 --   ('Proyektor', 'Epson EB-X05', false, 2, 'unit', 'Event B'),
 --   ('Kabel HDMI', '3 meter', false, 5, 'pcs', 'Event B');
+
