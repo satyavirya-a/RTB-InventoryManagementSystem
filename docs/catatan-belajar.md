@@ -192,9 +192,53 @@ npm run dev
 # Aplikasi akan bisa diakses di: http://localhost:5173
 ```
 
-Setelah `npm run dev` berjalan, coba:
+Setelah `npm run dev` berjalan, kamu akan melihat output seperti ini di terminal:
+
+```
+  VITE v6.4.3  ready in 2636 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+```
+
+Buka `http://localhost:5173` di browser, lalu coba:
 - Ubah teks di `src/App.jsx` → simpan → lihat browser update **tanpa refresh** (ini HMR)
 - Buka DevTools browser → Elements → lihat semua konten ada di dalam `<div id="root">`
+
+---
+
+### ⚠️ Troubleshooting — PowerShell Execution Policy (Windows)
+
+Kalau kamu mendapat error seperti ini saat menjalankan `npm run dev`:
+
+```
+npx : File C:\Program Files\nodejs\npx.ps1 cannot be loaded because
+running scripts is disabled on this system.
+```
+
+Ini bukan masalah kode — ini **konfigurasi keamanan Windows** yang memblokir script `.ps1`.
+PowerShell secara default hanya mengizinkan script yang sudah ditandatangani secara digital.
+Script `npm.ps1` tidak punya tanda tangan itu, sehingga diblokir.
+
+**Solusi — pilih salah satu:**
+
+**Opsi 1 (Recommended) — Fix permanen:**
+Buka PowerShell sebagai **Administrator** (klik kanan → Run as administrator), lalu:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+Ketik `Y` → Enter. Tutup terminal, buka baru, lalu `npm run dev` akan langsung bisa.
+
+> `RemoteSigned` artinya: script lokal boleh jalan, tapi script dari internet tetap harus
+> punya tanda tangan. Ini masih aman — bukan `Unrestricted` yang benar-benar membuka semua.
+
+**Opsi 2 — Pakai Command Prompt (cmd):**
+Buka terminal dengan tipe **Command Prompt** (bukan PowerShell), lalu ketik `npm run dev`.
+Di cmd, tidak ada masalah Execution Policy.
+
+**Opsi 3 — Pakai Git Bash:**
+Klik kanan di folder project → **Git Bash Here**, lalu `npm run dev`.
 
 ---
 
