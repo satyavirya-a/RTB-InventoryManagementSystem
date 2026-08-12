@@ -236,3 +236,195 @@ a {
   color: var(--color-primary);
 }
 
+
+/* ==========================================================================
+   CatalogPage Styles
+   ========================================================================== */
+
+.catalog-page {
+  padding: var(--space-5) var(--space-4);
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* --- Header Katalog --- */
+.catalog-header {
+  margin-bottom: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.catalog-header__title-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.catalog-header__title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.catalog-header__count {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+/* --- Search Bar --- */
+.catalog-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.catalog-search__icon {
+  position: absolute;
+  left: var(--space-4);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+}
+
+.catalog-search__input {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) + 1.5rem);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.catalog-search__input::placeholder { color: var(--text-muted); }
+.catalog-search__input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px hsla(217, 91%, 60%, 0.15);
+}
+
+/* Sembunyikan tombol X bawaan browser di input type=search */
+.catalog-search__input::-webkit-search-cancel-button { display: none; }
+
+.catalog-search__clear {
+  position: absolute;
+  right: var(--space-3);
+  background: var(--bg-border);
+  border: none;
+  border-radius: var(--radius-full);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast);
+}
+
+.catalog-search__clear:hover { background: var(--bg-surface-hover); }
+
+/* --- Grid Barang --- */
+.catalog-grid {
+  display: grid;
+  /* auto-fill: isi sebanyak mungkin kolom yang muat
+     minmax(160px, 1fr): minimum 160px, maksimum 1 bagian ruang */
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+/* Tablet ke atas: card agak lebih besar */
+@media (min-width: 480px) {
+  .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+}
+
+/* --- State Cards (Loading / Error / Empty) --- */
+.catalog-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-10) var(--space-6);
+  gap: var(--space-3);
+}
+
+.catalog-state__icon { font-size: 2.5rem; }
+
+.catalog-state__title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.catalog-state__message {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  max-width: 280px;
+}
+
+.catalog-state__action-btn {
+  margin-top: var(--space-2);
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  transition: background var(--transition-fast);
+}
+
+.catalog-state__action-btn:hover { background: var(--bg-surface-hover); }
+
+/* --- Skeleton Loading --- */
+.catalog-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+@media (min-width: 480px) {
+  .catalog-skeleton-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+}
+
+.skeleton-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.skeleton-card__body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Animasi shimmer — efek cahaya berjalan dari kiri ke kanan */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-border) 0%,
+    var(--bg-surface-hover) 50%,
+    var(--bg-border) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton--image   { aspect-ratio: 4/3; border-radius: 0; }
+.skeleton--text    { height: 14px; width: 100%; }
+.skeleton--text-lg { height: 16px; width: 80%; }
+.skeleton--badge   { height: 24px; width: 60%; border-radius: var(--radius-full); }
+.skeleton--btn     { height: 36px; width: 100%; border-radius: var(--radius-md); }
