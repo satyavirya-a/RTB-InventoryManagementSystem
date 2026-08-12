@@ -310,7 +310,121 @@ git diff --staged
 
 ## Fase 2 — Koneksi Supabase
 
-*(Akan diisi setelah Fase 2 selesai)*
+### Apa itu Supabase?
+
+**Supabase** adalah *Backend-as-a-Service* (BaaS) — artinya kamu mendapatkan backend siap pakai tanpa harus membangun server dari nol. Di baliknya, Supabase menggunakan **PostgreSQL** (database relasional yang sangat kuat) yang sudah dikonfigurasi untuk bisa diakses langsung dari browser.
+
+```
+Tanpa Supabase:   React → REST API buatan sendiri (Express/Node) → PostgreSQL
+Dengan Supabase:  React → Supabase Client SDK              → PostgreSQL
+                          (sudah include: auth, storage, realtime)
+```
+
+Yang kita pakai dari Supabase di project ini:
+- **Database** (PostgreSQL) → menyimpan items, transactions, transaction_details
+- **Storage** → menyimpan foto bukti transaksi
+- **Auth** → login panitia (Fase 7)
+
+---
+
+### import.meta.env vs process.env
+
+Ini salah satu perbedaan yang sering bikin bingung pemula:
+
+| | `process.env` | `import.meta.env` |
+|---|---|---|
+| Dipakai di | Node.js (server-side) | Vite / browser |
+| Cara baca `.env` | Otomatis | Prefix `VITE_` wajib ada |
+| Kapan di-resolve | Saat runtime (server) | Saat build time (Vite bundling) |
+
+```js
+// Di Node.js / Express:
+const url = process.env.SUPABASE_URL        // ✅ benar
+
+// Di Vite / React:
+const url = import.meta.env.VITE_SUPABASE_URL  // ✅ benar
+const url = process.env.VITE_SUPABASE_URL      // ❌ undefined di browser
+```
+
+**Kenapa harus prefix `VITE_`?**
+Vite sengaja tidak meng-expose semua env variable ke browser demi keamanan.
+Hanya variable dengan prefix `VITE_` yang akan disertakan dalam bundle.
+Variable tanpa prefix (misal `SECRET_KEY`) tidak akan bisa dibaca di browser.
+
+---
+
+### Anon Key vs Service Role Key
+
+Di Supabase Dashboard → Settings → API, kamu akan menemukan 2 jenis key:
+
+| Key | Dipakai di | Bisa melewati RLS? |
+|---|---|---|
+| `anon` (public) | Frontend / browser | ❌ Tidak — tunduk pada RLS |
+| `service_role` | Backend / server saja | ✅ Ya — melewati semua RLS |
+
+**Aturan keras:** `service_role` key **JANGAN PERNAH** dipakai di frontend.
+Jika ter-commit ke GitHub atau ter-expose di browser, siapa pun bisa mengakses seluruh database kamu tanpa batasan.
+
+Kita di project ini **hanya** pakai `anon` key di `supabaseClient.js`.
+
+---
+
+### Pola Singleton di supabaseClient.js
+
+```js
+// supabaseClient.js mengekspor SATU instance:
+export const supabase = createClient(url, key)
+
+// Semua komponen import dari file yang sama:
+import { supabase } from '../lib/supabaseClient'   // ItemCard.jsx
+import { supabase } from '../../lib/supabaseClient' // CatalogPage.jsx
+```
+
+Ini disebut pola **Singleton** — satu instance yang sama dipakai di seluruh aplikasi.
+Kenapa tidak buat `createClient()` di setiap komponen yang butuh?
+- Boros memori (setiap pemanggilan buat koneksi baru)
+- State autentikasi tidak sinkron (user login di satu instance, tapi komponen lain tidak tahu)
+
+---
+
+### File yang Dibuat di Fase 2
+
+| File | Peran |
+|---|---|
+| `docs/sql-schema.sql` | DDL 3 tabel + trigger + kerangka RPC function |
+| `src/lib/supabaseClient.js` | Instance Supabase (pola Singleton) |
+| `src/lib/constants.js` | Konstanta: jenis transaksi, nama event, status barang |
+
+### Skema Database yang Dibuat
+
+```
+items                    transactions                transaction_details
+┌──────────────────┐     ┌──────────────────┐        ┌─────────────────────┐
+│ id (PK)          │     │ id (PK)          │        │ id (PK)             │
+│ name             │     │ transaction_type │        │ transaction_id (FK) │→ transactions
+│ description      │     │ actor_name       │        │ item_id (FK)        │→ items
+│ photo_url        │     │ event_name       │        │ quantity            │
+│ is_consumable    │     │ proof_photo_url  │        │ created_at          │
+│ stock_available  │     │ notes            │        └─────────────────────┘
+│ stock_in_use     │     │ created_at       │
+│ unit             │     └──────────────────┘
+│ status           │
+│ event_name       │
+│ created_at       │
+│ updated_at       │
+└──────────────────┘
+```
+
+---
+
+### Cara Verifikasi Koneksi
+
+Setelah `.env.local` diisi, jalankan `npm run dev` dan buka browser ke `http://localhost:5173`.
+Aplikasi akan otomatis test koneksi dan menampilkan:
+
+- 🟡 Berkedip kuning → sedang mengecek koneksi
+- 🟢 Berkedip hijau  → koneksi berhasil, siap ke Fase 3
+- 🔴 Merah statis   → koneksi gagal, baca hint di bawahnya
 
 ---
 

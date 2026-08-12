@@ -27,8 +27,8 @@
 | Fase | Status | Tanggal Selesai |
 |---|---|---|
 | Fase 0 — Fondasi (AGENTS.md, akun Supabase/Vercel) | ✅ Selesai | — |
-| Fase 1 — Setup Project React + Vite | 🟡 Perlu verifikasi | — |
-| Fase 2 — Koneksi Supabase | ⬜ Belum dimulai | — |
+| Fase 1 — Setup Project React + Vite | ✅ Selesai | 2026-08-08 |
+| Fase 2 — Koneksi Supabase | 🟡 Dalam proses | 2026-08-12 |
 | Fase 3 — Katalog Barang | ⬜ Belum dimulai | — |
 | Fase 4 — Cart System | ⬜ Belum dimulai | — |
 | Fase 5 — Logika Transaksi | ⬜ Belum dimulai | — |
@@ -92,37 +92,141 @@ git commit -m "chore: setup fondasi project Fase 1
 
 **Tujuan:** Menghubungkan frontend React ke backend Supabase. Ini adalah langkah yang membuat aplikasi kamu dari "statis" menjadi "punya data nyata".
 
-> ⚠️ **Sebelum mulai Fase 2, kamu harus melakukan ini secara manual:**
-> 1. Buat project di https://app.supabase.com (jika belum ada)
-> 2. Buka **SQL Editor** di dashboard Supabase
-> 3. Jalankan script dari `docs/sql-schema.sql` untuk membuat 3 tabel
-> 4. Copy `.env.example` → `.env.local`, isi dengan URL & key asli
+### Ringkasan Langkah Fase 2
 
-### File yang akan Dibuat
+| # | Langkah | Siapa | Status |
+|---|---|---|---|
+| 2.A | Install `@supabase/supabase-js` | 🤖 Agent | ⬜ |
+| 2.B | Buat `docs/sql-schema.sql` (DDL 3 tabel) | 🤖 Agent | ⬜ |
+| 2.C | Buat `src/lib/supabaseClient.js` | 🤖 Agent | ⬜ |
+| 2.D | Buat `src/lib/constants.js` (enum event & transaksi) | 🤖 Agent | ⬜ |
+| 2.E | **Buat project Supabase** (dashboard) | 👤 Manual | ⬜ |
+| 2.F | **Jalankan SQL** di Supabase SQL Editor | 👤 Manual | ⬜ |
+| 2.G | **Buat `.env.local`** dan isi URL + key | 👤 Manual | ⬜ |
+| 2.H | Test koneksi di browser console | 👤 Manual | ⬜ |
+| 2.I | Git commit + push | 🤖 Agent | ⬜ |
 
-| # | File | Keterangan |
-|---|---|---|
-| 1 | `docs/sql-schema.sql` | DDL lengkap 3 tabel + constraint (untuk dijalankan manual) |
-| 2 | `src/lib/supabaseClient.js` | Inisialisasi koneksi Supabase dengan JSDoc |
-| 3 | `.env.local` | Dibuat manual oleh kamu — TIDAK di-commit! |
+---
 
-### Checklist Verifikasi
-
-- [ ] `.env.local` sudah diisi dengan nilai asli (bukan placeholder)
-- [ ] `console.log(await supabase.from('items').select('*'))` → tidak error di browser console
-- [ ] Tidak ada error `401 Unauthorized` atau `Failed to fetch`
-- [ ] Kode `supabaseClient.js` TIDAK mengandung hardcode URL/key — hanya `import.meta.env`
-
-### Git Commit
+### Step 2.A — Install Supabase JS Client
 
 ```bash
-git add .
-# JANGAN: git add .env.local
-git commit -m "feat: setup koneksi Supabase client (Fase 2)
+npm install @supabase/supabase-js
+```
 
-- Tambah @supabase/supabase-js sebagai dependency
-- Buat src/lib/supabaseClient.js dengan JSDoc lengkap
-- Buat docs/sql-schema.sql sebagai referensi skema database"
+Library ini adalah "jembatan" antara kode React kamu dan database Supabase.
+Tanpa ini, kamu tidak bisa memanggil `supabase.from('items').select('*')`.
+
+---
+
+### Step 2.B — SQL Schema (docs/sql-schema.sql)
+
+File ini berisi **DDL (Data Definition Language)** — perintah SQL untuk membuat:
+- Tabel `items` (katalog barang)
+- Tabel `transactions` (header setiap transaksi)
+- Tabel `transaction_details` (detail barang per transaksi)
+- Semua `CHECK constraint` untuk validasi data
+- Fungsi `process_checkout_transaction()` (kerangka, dilengkapi di Fase 5)
+
+> ⚠️ File ini **hanya dokumentasi** — harus dijalankan **manual** di Supabase SQL Editor.
+
+---
+
+### Step 2.C — Supabase Client (src/lib/supabaseClient.js)
+
+```js
+// Yang akan dibuat:
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+```
+
+Perhatikan: `import.meta.env` adalah cara **Vite** membaca env variables.
+Berbeda dengan `process.env` yang dipakai di Node.js.
+Prefix `VITE_` wajib ada — tanpanya Vite tidak akan expose variable ke browser.
+
+---
+
+### Step 2.D — Constants (src/lib/constants.js)
+
+Menyimpan nilai tetap seperti nama event dan jenis transaksi agar tidak hardcode di banyak tempat.
+
+---
+
+### Step 2.E — Langkah Manual: Buat Project Supabase
+
+1. Buka https://app.supabase.com
+2. Klik **"New Project"**
+3. Nama project: `gudang-rtb` (atau sesuai preferensi)
+4. Pilih region terdekat: **Southeast Asia (Singapore)**
+5. Set database password (simpan baik-baik!)
+6. Tunggu project selesai provisioning (~2 menit)
+
+---
+
+### Step 2.F — Langkah Manual: Jalankan SQL di Supabase
+
+1. Di dashboard Supabase → klik **SQL Editor** di sidebar kiri
+2. Klik **"New query"**
+3. Copy-paste isi file `docs/sql-schema.sql`
+4. Klik **"Run"** (atau Ctrl+Enter)
+5. Verifikasi: buka **Table Editor** → pastikan 3 tabel muncul
+
+---
+
+### Step 2.G — Langkah Manual: Setup .env.local
+
+```bash
+# Di terminal, dari root project:
+copy .env.example .env.local
+```
+
+Lalu buka `.env.local` dan isi:
+- `VITE_SUPABASE_URL` → dari Supabase Dashboard → Settings → API → **Project URL**
+- `VITE_SUPABASE_ANON_KEY` → dari Supabase Dashboard → Settings → API → **anon public**
+
+> ❌ JANGAN commit file ini ke Git. Sudah ada di `.gitignore`.
+
+---
+
+### Step 2.H — Test Koneksi (Manual)
+
+Setelah `.env.local` diisi dan `npm run dev` berjalan, buka browser console dan ketik:
+
+```js
+// Buka http://localhost:5173 → F12 → Console → ketik:
+const { data, error } = await window.__supabase.from('items').select('*')
+console.log({ data, error })
+```
+
+Atau lihat output di console yang sudah ada (App.jsx akan menampilkannya).
+
+**Ekspektasi:**
+- ✅ `data: []` (array kosong) → koneksi berhasil, tabel kosong
+- ❌ `error: { message: 'Failed to fetch' }` → URL salah
+- ❌ `error: { code: '401' }` → key salah atau RLS terlalu ketat
+
+---
+
+### Checklist Verifikasi Fase 2
+
+- [ ] `npm install @supabase/supabase-js` berhasil tanpa error
+- [ ] 3 tabel muncul di Supabase Table Editor setelah SQL dijalankan
+- [ ] `.env.local` sudah diisi dengan nilai asli (bukan placeholder)
+- [ ] Browser console: tidak ada error saat fetch ke Supabase
+- [ ] `supabaseClient.js` TIDAK mengandung hardcode URL/key
+- [ ] `git status` → `.env.local` TIDAK muncul
+
+### Git Commit Fase 2
+
+```bash
+git add docs/sql-schema.sql src/lib/supabaseClient.js src/lib/constants.js package.json package-lock.json
+git commit -m "feat: install Supabase dan setup SQL schema"
+git commit -m "feat: buat supabaseClient.js dan constants.js"
+git push origin main
 ```
 
 ---
