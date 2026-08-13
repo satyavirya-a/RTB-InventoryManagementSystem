@@ -798,7 +798,51 @@ Kita membuat `TransactionFAB` dengan pola *Speed Dial*. Ini bukan hanya tombol b
 
 ## Fase 4.5 — Item Detail Modal (Fitur Tambahan)
 
-*(Akan diisi setelah Fase 4.5 selesai)*
+### 1. Event Bubbling & `e.stopPropagation()`
+
+Saat kita menambahkan efek *klik* pada seluruh `<article>` (kartu barang) untuk memunculkan modal, kita menghadapi sebuah masalah: **Tombol "Tambah ke Keranjang" ada di dalam kartu tersebut.**
+
+Kalau kita klik tombolnya, klik tersebut akan "menjalar" ke atas (ke elemen induknya) sampai mencapai `<article>`, sehingga modal ikut terbuka. Perilaku ini disebut **Event Bubbling**.
+
+**Solusinya:** Kita menggunakan `e.stopPropagation()` pada tombol.
+```jsx
+onClick={(e) => {
+  e.stopPropagation() // Hentikan klik agar tidak tembus ke komponen induk (article)
+  addToCart(item, 1)
+}}
+```
+
+### 2. Scroll Locking dengan useEffect
+
+Saat modal terbuka, kita tidak ingin user bisa men-scroll halaman di belakangnya (katalog). Kita bisa mengunci scroll dengan memanipulasi style dari elemen `<body>` secara langsung.
+
+Karena berinteraksi dengan elemen di luar React (DOM langsung), kita harus menaruhnya di dalam `useEffect`:
+
+```jsx
+useEffect(() => {
+  document.body.style.overflow = 'hidden' // Kunci scroll saat modal muncul
+  return () => {
+    document.body.style.overflow = 'unset' // Kembalikan saat modal ditutup
+  }
+}, [])
+```
+Fungsi yang di-return di dalam `useEffect` disebut **Cleanup Function**. Fungsi ini akan otomatis dipanggil oleh React tepat sebelum komponen `ItemDetailModal` dihancurkan (ditutup).
+
+### 3. Aksesibilitas Keyboard (Escape untuk Menutup)
+
+Aplikasi yang baik bisa diakses dengan mudah pakai keyboard. Menutup pop-up dengan tombol `Esc` adalah standar UI modern. Sama seperti scroll locking, kita butuh `useEffect` untuk mendengarkan event dari keyboard:
+
+```jsx
+useEffect(() => {
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') onClose()
+  }
+  window.addEventListener('keydown', handleKeyDown)
+  
+  // Wajib dibersihkan agar event listener tidak menumpuk di memori (memory leak)
+  return () => window.removeEventListener('keydown', handleKeyDown)
+}, [onClose])
+```
 
 ---
 
