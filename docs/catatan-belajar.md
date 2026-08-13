@@ -750,7 +750,55 @@ dan tidak berisiko menghapus data production secara tidak sengaja.
 
 ## Fase 4 — Cart System
 
-*(Akan diisi setelah Fase 4 selesai)*
+### Mengapa Context API, Bukan Props Biasa?
+
+Sebelumnya, kita punya komponen seperti ini:
+```
+App
+ └─ CatalogPage
+     └─ ItemCard
+```
+Jika kita menyimpan state cart di `App`, kita harus mengirim fungsi `addToCart` lewat `props` secara berantai: `App` → `CatalogPage` → `ItemCard`. Padahal `CatalogPage` sama sekali tidak butuh fungsi itu. Praktik mengoper props melewati komponen yang tidak membutuhkannya disebut **Prop Drilling**.
+
+**Solusinya: Context API.**
+Context menyediakan cara untuk berbagi nilai antar komponen tanpa harus secara eksplisit mengoper prop melalui setiap tingkat pohon (tree).
+
+```
+CartProvider (menyediakan data cart)
+ ├─ CatalogPage
+ │   └─ ItemCard  (bisa langsung ambil data dari CartProvider pakai useCart)
+ └─ CartDrawer    (bisa langsung ambil data dari CartProvider pakai useCart)
+```
+
+### useReducer vs useState untuk Logika Kompleks
+
+Di `CartContext`, kita memakai `useReducer`.
+
+**Kapan pakai useState?**
+Saat state sederhana dan perubahannya independen. Contoh: `[isOpen, setIsOpen]`.
+
+**Kapan pakai useReducer?**
+Saat state kompleks (seperti array of objects dalam cart) dan ada banyak jenis aksi yang bisa mengubah state tersebut.
+- *Add Item* (Tambah kuantitas jika sudah ada, atau buat entry baru)
+- *Remove Item*
+- *Update Quantity*
+- *Clear Cart*
+
+Dengan `useReducer`, semua logika ini disatukan dalam satu fungsi murni (`cartReducer`), sehingga sangat mudah ditesting dan di-debug. Komponen lain cukup memanggil `dispatch({ type: 'ADD_ITEM', payload: ... })` tanpa perlu tahu logika rumit di baliknya.
+
+### Pola Komponen FAB (Floating Action Button)
+
+Kita membuat `TransactionFAB` dengan pola *Speed Dial*. Ini bukan hanya tombol biasa, melainkan menu interaktif.
+
+- **Fixed Positioning:** `.fab-container { position: fixed; bottom: 28px; right: 20px; }` memastikannya selalu "mengambang" di layar, tidak peduli seberapa jauh user scroll.
+- **CSS Transitions & Staggering:** Daripada menggunakan library animasi JavaScript yang berat, kita menggunakan CSS `transform` dan `opacity`.
+- **CSS Variable untuk Delay (`--option-index`):** Tiap opsi punya variable indeks (0, 1, 2, 3) yang disuntikkan dari React. CSS menggunakan `calc()` untuk memberi jeda animasi (stagger): `transition-delay: calc(var(--option-index, 0) * 40ms)`. Hasilnya opsi muncul berurutan (cascade) sangat mulus.
+
+---
+
+## Fase 4.5 — Item Detail Modal (Fitur Tambahan)
+
+*(Akan diisi setelah Fase 4.5 selesai)*
 
 ---
 

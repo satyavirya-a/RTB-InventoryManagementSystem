@@ -30,7 +30,8 @@
 | Fase 1 — Setup Project React + Vite | ✅ Selesai | 2026-08-08 |
 | Fase 2 — Koneksi Supabase | ✅ Selesai | 2026-08-12 |
 | Fase 3 — Katalog Barang | ✅ Selesai | 2026-08-12 |
-| Fase 4 — Cart System | ⬜ Belum dimulai | — |
+| Fase 4 — Cart System & FAB | ✅ Selesai | 2026-08-13 |
+| Fase 4.5 — Item Detail Modal | ✅ Selesai | 2026-08-13 |
 | Fase 5 — Logika Transaksi | ⬜ Belum dimulai | — |
 | Fase 6 — Kompresi Gambar | ⬜ Belum dimulai | — |
 | Fase 7 — Autentikasi & RLS | ⬜ Belum dimulai | — |
