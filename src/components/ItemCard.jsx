@@ -15,9 +15,11 @@
  * @param {number} props.item.stock_available
  * @param {number} props.item.stock_in_use
  * @param {string} props.item.unit
- * @param {Function} [props.onAddToCart] - Callback saat tombol "Tambah" ditekan (Fase 4)
  */
-function ItemCard({ item, onAddToCart }) {
+import { useCart } from '../contexts/CartContext'
+
+function ItemCard({ item }) {
+  const { addToCart, cartItems } = useCart()
   /**
    * Menentukan warna dan label badge stok berdasarkan jumlah stok tersedia.
    * Logika ini membantu panitia langsung tahu urgensi stok tanpa hitung manual.
@@ -34,6 +36,11 @@ function ItemCard({ item, onAddToCart }) {
   const stockBadge     = getStockBadgeInfo(item.stock_available)
   const isConsumable   = item.is_consumable
   const isOutOfStock   = item.stock_available === 0
+
+  // Cek apakah barang ini sudah di cart
+  const cartEntry    = cartItems.find((e) => e.item.id === item.id)
+  const qtyInCart    = cartEntry ? cartEntry.quantity : 0
+  const isMaxInCart  = qtyInCart >= item.stock_available
 
   return (
     <article className="item-card" aria-label={`Barang: ${item.name}`}>
@@ -84,11 +91,16 @@ function ItemCard({ item, onAddToCart }) {
         {/* === Tombol Aksi (placeholder untuk Fase 4) === */}
         <button
           className="item-card__btn"
-          disabled={isOutOfStock}
-          onClick={() => onAddToCart?.(item)}
+          disabled={isOutOfStock || isMaxInCart}
+          onClick={() => addToCart(item, 1)}
           aria-label={`Tambah ${item.name} ke keranjang`}
         >
-          {isOutOfStock ? 'Stok Habis' : '+ Tambah ke Keranjang'}
+          {isOutOfStock
+            ? 'Stok Habis'
+            : isMaxInCart
+              ? `Di Keranjang (${qtyInCart})`
+              : '+ Tambah ke Keranjang'
+          }
         </button>
       </div>
     </article>

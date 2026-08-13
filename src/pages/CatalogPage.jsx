@@ -120,10 +120,7 @@ function CatalogPage() {
         <div className="catalog-grid" role="list" aria-label="Daftar barang">
           {items.map((item) => (
             <div key={item.id} role="listitem">
-              <ItemCard
-                item={item}
-                onAddToCart={null}
-              />
+              <ItemCard item={item} />
             </div>
           ))}
         </div>
