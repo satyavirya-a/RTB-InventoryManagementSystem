@@ -13,12 +13,15 @@
  *
  * @returns {JSX.Element}
  */
-import ItemCard from '../components/ItemCard'
-import '../components/ItemCard.css'
+import { useState } from 'react'
 import { useItems } from '../hooks/useItems'
+import ItemCard from '../components/ItemCard'
+import ItemDetailModal from '../components/ItemDetailModal'
+import '../components/ItemCard.css'
 
 function CatalogPage() {
   const { items, isLoading, error, searchQuery, setSearchQuery, totalItems } = useItems()
+  const [selectedItem, setSelectedItem] = useState(null)
 
   return (
     <div className="catalog-page">
@@ -120,11 +123,17 @@ function CatalogPage() {
         <div className="catalog-grid" role="list" aria-label="Daftar barang">
           {items.map((item) => (
             <div key={item.id} role="listitem">
-              <ItemCard item={item} />
+              <ItemCard item={item} onClick={() => setSelectedItem(item)} />
             </div>
           ))}
         </div>
       )}
+
+      {/* Render modal jika ada barang yang dipilih */}
+      <ItemDetailModal
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+      />
     </div>
   )
 }

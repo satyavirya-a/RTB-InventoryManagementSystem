@@ -15,10 +15,11 @@
  * @param {number} props.item.stock_available
  * @param {number} props.item.stock_in_use
  * @param {string} props.item.unit
+ * @param {Function} [props.onClick] - Callback saat card diklik (untuk buka modal)
  */
 import { useCart } from '../contexts/CartContext'
 
-function ItemCard({ item }) {
+function ItemCard({ item, onClick }) {
   const { addToCart, cartItems } = useCart()
   /**
    * Menentukan warna dan label badge stok berdasarkan jumlah stok tersedia.
@@ -43,7 +44,11 @@ function ItemCard({ item }) {
   const isMaxInCart  = qtyInCart >= item.stock_available
 
   return (
-    <article className="item-card" aria-label={`Barang: ${item.name}`}>
+    <article
+      className="item-card item-card--clickable"
+      aria-label={`Barang: ${item.name}`}
+      onClick={onClick}
+    >
       {/* === Foto Barang === */}
       <div className="item-card__image-wrapper">
         {item.photo_url ? (
@@ -92,7 +97,10 @@ function ItemCard({ item }) {
         <button
           className="item-card__btn"
           disabled={isOutOfStock || isMaxInCart}
-          onClick={() => addToCart(item, 1)}
+          onClick={(e) => {
+            e.stopPropagation() // Cegah event klik tembus ke <article> (yang membuka modal)
+            addToCart(item, 1)
+          }}
           aria-label={`Tambah ${item.name} ke keranjang`}
         >
           {isOutOfStock

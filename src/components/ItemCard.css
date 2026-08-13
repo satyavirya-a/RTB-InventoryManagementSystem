@@ -178,3 +178,12 @@
   color: var(--text-muted);
   cursor: not-allowed;
 }
+
+/* --- Variasi Clickable --- */
+.item-card--clickable {
+  cursor: pointer;
+}
+
+.item-card--clickable:hover {
+  border-color: var(--color-primary);
+}
