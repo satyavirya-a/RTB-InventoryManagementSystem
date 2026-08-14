@@ -846,9 +846,63 @@ useEffect(() => {
 
 ---
 
-## Fase 5 — Logika Transaksi
+## 🎯 Review Tengah Proyek (Sebelum Masuk Fase 5)
 
-*(Akan diisi setelah Fase 5 selesai)*
+Sejauh ini, kita sudah menyelesaikan hampir seluruh fondasi **Frontend (UI & State Management)**. Sebelum kita masuk ke kerumitan **Backend & Database Logic (Fase 5)**, mari kita rangkum pola pikir (mindset) yang sudah terbangun:
+
+### 1. "Single Source of Truth" untuk State
+Kenapa kita repot-repot membuat `CartContext` dengan `useReducer`? 
+Bayangkan jika keranjang belanja dikelola masing-masing oleh `ItemCard` dan `CartDrawer`. Kalau user menambah barang dari modal, `CartDrawer` tidak akan tahu. Dengan Context, keranjang hanya ada **satu** (Single Source of Truth). Komponen manapun yang memanggil `useCart()` selalu melihat data yang sama dan *ter-update*.
+
+### 2. Validasi Frontend vs Validasi Backend
+Saat ini, di `CartContext`, kita mencegah user memasukkan jumlah barang melebihi `stock_available`.
+```jsx
+// Validasi Frontend
+const finalQty = Math.min(newQty, item.stock_available)
+```
+**PENTING:** Validasi frontend HANYA untuk kenyamanan UI/UX (agar user tidak bisa klik tombol `+` saat stok habis). Ini **TIDAK AMAN**. 
+Bayangkan Skenario (Race Condition):
+- User A dan User B membuka aplikasi bersamaan. Stok Proyektor = 1.
+- User A menekan "+ Tambah" (diizinkan frontend).
+- User B menekan "+ Tambah" sedetik kemudian (diizinkan frontend karena data stok di layar B belum terupdate).
+- Keduanya menekan "Checkout". 
+
+Jika tidak ada *Validasi Backend*, stok Proyektor akan menjadi -1 (Minus Satu). Inilah mengapa **Fase 5** sangat krusial. Kita akan menulis fungsi di database (PostgreSQL RPC) yang mengunci baris stok dan memprosesnya secara atomik.
+
+### 3. Komponen yang "Bodoh" (Dumb Components) Lebih Mudah Dirawat
+Komponen seperti `ItemCard` sangat "bodoh" (dalam artian positif). Ia tidak tahu dari mana data `item` berasal. Ia hanya menerima props `item`, dan memanggil fungsi dari `useCart()` saat diklik. Kalau besok kita ubah database dari Supabase ke Firebase, kode `ItemCard` **tidak perlu diubah sama sekali**. Pola ini membuat kode kita panjang umurnya (maintainable).
+
+---
+
+## Fase 5 — Logika Transaksi & Database Otomatis (Refaktor 3 Menu)
+
+Pada fase ini, kita melakukan perubahan besar-besaran (refactoring) berdasarkan *feedback* di lapangan. Awalnya kita memiliki 4 menu transaksi dan UI berbasis keranjang (Cart-first). Sekarang kita menyederhanakannya menjadi 3 menu (Pemakaian, Pengembalian, Penitipan) dengan alur bertahap (Wizard-first).
+
+### 1. Kenapa "Wizard" Lebih Baik dari "Cart" untuk Aplikasi Internal?
+Aplikasi e-commerce (seperti Tokopedia) menggunakan **Cart-first** karena tujuannya agar orang bebas melihat-lihat, memasukkan barang ke keranjang, dan mungkin tidak jadi beli (abandoned cart).
+Namun, untuk aplikasi internal/operasional seperti Gudang RTB, tujuannya adalah **Akurasi dan Kecepatan Transaksi**.
+Dengan model **Wizard (Form-first)**:
+- Panitia dipaksa memilih *Niat* (tipe transaksi) dan *Identitas* di awal.
+- Ini meminimalisir kesalahan (misal: niatnya pinjam, tapi kepencet ambil).
+- UI jadi lebih terarah. Tidak ada lagi keranjang yang "menggantung" tanpa kejelasan siapa pemiliknya.
+
+### 2. Memindahkan Kerumitan ke Backend (Penyederhanaan UI)
+Sebelumnya, panitia harus bingung membedakan "Pengambil" (untuk barang habis pakai) dan "Peminjam" (untuk barang pinjaman).
+Sekarang, kita gabung menjadi satu tombol: **Pemakaian**.
+Bagaimana sistem tahu bedanya? Kita mengandalkan kolom `is_consumable` di database.
+- Saat RPC function `process_checkout_transaction` dipanggil, PostgreSQL akan mengecek tiap barang.
+- Jika `is_consumable = true` (Lakban), maka *stock_available* dikurangi permanen.
+- Jika `is_consumable = false` (Proyektor), maka *stock_available* dikurangi, dan *stock_in_use* ditambah.
+**Pelajaran:** Jika sebuah logika bisnis membingungkan *user* (manusia), cobalah sembunyikan logika tersebut di *backend* agar sistem yang mengerjakannya secara otomatis. UX (User Experience) yang baik adalah yang tidak membuat user banyak berpikir.
+
+### 3. Menggunakan SQL View untuk Pelaporan Dinamis
+Kamu meminta fitur: *"Saya ingin tahu siapa saja yang sedang meminjam proyektor."*
+Cara paling standar tapi rumit: Menambah kolom `borrowed_by` atau tabel baru, yang berarti harus kita update terus menerus setiap ada transaksi.
+Cara **terbaik dan elegan**: Menggunakan **SQL View** (`active_loans`).
+- SQL View adalah tabel "virtual" yang datanya selalu terbaru (real-time) dihitung dari query `SELECT`.
+- Di sini, view kita menghitung: `(Jumlah Pemakaian) - (Jumlah Pengembalian) per User`.
+- Kalau selisihnya > 0, berarti si User masih berhutang/meminjam barang tersebut.
+- Keuntungan: Kita tidak perlu menambah logika `UPDATE` apa pun saat transaksi. Datanya akan selalu akurat secara matematis!
 
 ---
 
@@ -862,3 +916,48 @@ useEffect(() => {
 | State | Data yang kalau berubah akan otomatis me-re-render komponen | [react.dev/learn/state-a-components-memory](https://react.dev/learn/state-a-components-memory) |
 | Hook | Fungsi khusus React yang namanya diawali "use" | [react.dev/reference/react](https://react.dev/reference/react) |
 | CSS Variables | Nilai yang bisa dipakai ulang di seluruh file CSS | [MDN CSS Custom Properties](https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties) |
+
+---
+
+## 🎨 Pelajaran Ekstra (UI & Bug Fixing)
+
+### 1. Sinkronisasi Token CSS (Variables)
+Saat mengembangkan UI kompleks seperti `TransactionWizard.jsx`, sangat umum terjadi kesalahan penulisan nama variabel CSS (misalnya, menulis `var(--color-bg-body)` padahal yang ada di `index.css` adalah `var(--bg-base)`). 
+- Jika variabel tidak ditemukan, browser akan mengabaikannya, menyebabkan elemen transparan dan bertabrakan dengan background.
+- Menggunakan palet yang konsisten (seperti `var(--bg-surface)` untuk input form di mode gelap) sangat penting agar UI tidak "tenggelam" dalam background gelap.
+
+### 2. Mengambil Data Relasional Secara Dinamis
+Di `ItemDetailModal.jsx`, kita ingin menampilkan *Siapa yang meminjam barang ini?*
+Karena kita sudah memiliki view `active_loans` dari Fase 5, kita hanya perlu memanggilnya:
+```jsx
+const { data, error } = await supabase
+  .from('active_loans')
+  .select('*')
+  .eq('item_id', item.id)
+```
+Kita meletakkan *fetch* ini di dalam `useEffect` yang dipicu setiap kali props `item` berubah, dan HANYA dieksekusi jika barang tersebut bersifat non-consumable (`!item.is_consumable`) dan ada unit yang dipinjam (`item.stock_in_use > 0`). Hal ini sangat menghemat pemanggilan ke database (menghindari request yang tidak perlu).
+
+### 3. Menghindari Nested Padding & "Scroll Trap" pada Layout Responsif
+Saat sebuah komponen katalog disematkan (embedded) di dalam komponen lain (seperti form Wizard):
+- **Masalah Padding Bertumpuk:** Jika container luar punya padding 24px, card punya padding 24px, dan katalog di dalamnya punya padding 20px, total ruang horizontal yang hilang di layar HP mencapai >130px. Akibatnya, grid terpaksa memaksakan 1 kolom raksasa.
+- **Solusi Embedded Mode:** Buat prop khusus seperti `isEmbedded` di `CatalogPage` untuk meniadakan padding luar dan judul duplikat saat berada di dalam wizard.
+- **Menghilangkan Scroll Trap:** Memberikan `max-height: 500px; overflow-y: auto;` di dalam kartu membuat scrollbar ganda yang sangat canggung di HP (user sering tersangkut saat scroll). Lebih baik biarkan halaman mengalir (flow) secara natural mengikuti panjang kontennya.
+- **Grid 2 Kolom di HP:** Gunakan `grid-template-columns: repeat(2, 1fr)` dengan `gap: 8px-12px` di layar mobile agar kartu barang proporsional dan tidak memakan terlalu banyak tinggi layar.
+
+### 4. Validasi Batas Kuantitas Pengembalian (Boundary Condition)
+Pada transaksi **Pengembalian Barang**, ada aturan bisnis yang sangat fundamental:
+- **Kuantitas Pengembalian Maksimal = `stock_in_use`**: Seseorang tidak boleh mengembalikan 6 unit proyektor jika seluruh gudang hanya mencatat 3 unit yang sedang dipinjam.
+- **Barang Tidak Sedang Dipinjam**: Barang yang `stock_in_use = 0` harus ditolak dari awal karena memang tidak ada unit yang bisa dikembalikan.
+- **Dual Guard (Frontend + Database RPC)**: 
+  1. *Di Frontend (`TransactionWizard.jsx`)*: Mencegah tombol `+` diklik saat kuantitas mencapai batas `stock_in_use`.
+  2. *Di Database (`process_checkout_transaction`)*: Mengecek `IF v_stock_in_use < v_quantity THEN RAISE EXCEPTION` agar database tidak pernah menghasilkan nilai `stock_in_use` negatif yang merusak integritas data.
+
+### 5. Penyederhanaan Inventaris: General Item Management
+Berdasarkan evaluasi penggunaan nyata, membedakan barang menjadi "Habis Pakai" dan "Pinjam" sering kali membatasi fleksibilitas operasional panitia (misalnya: lakban atau spidol yang masih ada sisa dan ingin dikembalikan ke gudang):
+- **Sistem General yang Seragam**: Seluruh barang di gudang kini diperlakukan sama secara matematis:
+  - `Pemakaian`: Mengurangi `stock_available`, menambah `stock_in_use`.
+  - `Pengembalian`: Menambah `stock_available`, mengurangi `stock_in_use`.
+- **Keuntungan**:
+  1. **UI Bersih**: Tidak ada lagi badge "Habis Pakai" / "Pinjam" yang membingungkan panitia.
+  2. **Logika Kode Sederhana**: Menghilangkan percabangan `IF is_consumable` di SQL dan React, membuat alur transaksi jauh lebih mudah dipelihara (maintainable) dan bebas dari bug status.
+  3. **Transparansi Penuh**: Siapa pun yang membawa barang apa pun (baik proyektor maupun ATK) dapat dilacak secara akurat lewat `active_loans`.

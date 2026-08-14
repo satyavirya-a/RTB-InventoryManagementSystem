@@ -32,7 +32,7 @@
 | Fase 3 — Katalog Barang | ✅ Selesai | 2026-08-12 |
 | Fase 4 — Cart System & FAB | ✅ Selesai | 2026-08-13 |
 | Fase 4.5 — Item Detail Modal | ✅ Selesai | 2026-08-13 |
-| Fase 5 — Logika Transaksi | ⬜ Belum dimulai | — |
+| Fase 5 — Logika Transaksi & UI Wizard | ✅ Selesai | 2026-08-14 |
 | Fase 6 — Kompresi Gambar | ⬜ Belum dimulai | — |
 | Fase 7 — Autentikasi & RLS | ⬜ Belum dimulai | — |
 | Fase 8 — Testing & Polish UI | ⬜ Belum dimulai | — |
@@ -340,30 +340,155 @@ DELETE FROM items WHERE event_name = 'SAMPLE_TEST';
 ```bash
 git commit -m "feat: cart system dengan React Context API (Fase 4)
 
-- Buat CartContext.jsx: addToCart, removeFromCart, updateQuantity, clearCart
-- Validasi: quantity tidak boleh melebihi stock_available
-- Cart tidak disimpan ke localStorage (reset per sesi)
-- Buat CartDrawer.jsx: panel keranjang responsif
-- Buat useCart.js: custom hook untuk akses CartContext"
-```
+- Buat CartContext.jsx: addToC## Fase 5 — Logika Transaksi & Database Otomatis (Refaktor 3 Menu)
 
----
+**Tujuan:** Mengimplementasikan logika pembaruan stok yang atomik (mencegah *race condition*) sekaligus menyederhanakan alur transaksi menjadi 3 menu utama (berdasarkan feedback lapangan).
 
-## Fase 5 — Logika Transaksi & Database
+### Konsep 3 Menu Utama
+1. **Pemakaian**: Menggabungkan pengambilan barang habis pakai (stok berkurang) dan peminjaman barang non-habis pakai (stok dipinjam). Sistem backend otomatis membedakan perlakuannya berdasarkan tipe barang.
+2. **Pengembalian**: Hanya untuk barang yang berstatus dipinjam. Menambah `stock_available` dan mengurangi `stock_in_use`.
+3. **Penitipan**: Digunakan untuk menitipkan barang di luar katalog. Hanya membuat rekaman header transaksi, tanpa mengunci atau mengubah stok barang di katalog.
 
-**Tujuan:** Implementasi logika inti bisnis — update stok yang atomik dan benar sesuai jenis transaksi.
+### Pelacakan Peminjam (SQL View)
+Untuk mengetahui "siapa meminjam apa", kita membuat SQL View `active_loans`. View ini menghitung selisih kuantitas antara transaksi **Pemakaian** dan **Pengembalian** per user per barang. Jika selisih > 0, artinya user tersebut masih memegang barang tersebut.
 
-> ⚠️ **Ini fase paling krusial.** Kesalahan di sini = data inventaris berantakan.
-> Jangan lanjut sebelum benar-benar memahami logika di bawah ini.
+### Rencana Kode SQL
 
-### Logika Stok per Jenis Transaksi
+Kode ini akan dieksekusi di Supabase SQL Editor.
 
-| Jenis | `stock_available` | `stock_in_use` | Catatan |
-|---|---|---|---|
-| `penaruh` | ↑ tambah | tidak berubah | Stok masuk |
-| `pengambil` | ↓ kurang | tidak berubah | Jika hasil = 0 → `status = 'archived'` |
-| `peminjam` | ↓ kurang | ↑ tambah | Total (available + in_use) tetap sama |
-| `pengembali` | ↑ tambah | ↓ kurang | Total (available + in_use) tetap sama |
+```sql
+-- 1. Perbarui Constraint Jenis Transaksi
+ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_transaction_type_check;
+ALTER TABLE transactions ADD CONSTRAINT transactions_transaction_type_check 
+  CHECK (transaction_type IN ('pemakaian', 'pengembalian', 'penitipan'));
+
+-- 2. Fungsi RPC process_checkout_transaction
+CREATE OR REPLACE FUNCTION process_checkout_transaction(
+  p_transaction_type text,
+  p_actor_name       text,
+  p_event_name       text,
+  p_proof_photo_url  text,
+  p_notes            text,
+  p_cart_items       jsonb  -- Format: [{"item_id": "uuid", "quantity": 2}, ...]
+)
+RETURNS uuid
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_transaction_id uuid;
+  v_cart_item      jsonb;
+  v_item_id        uuid;
+  v_quantity       integer;
+  v_is_consumable  boolean;
+  v_stock_avail    integer;
+  v_stock_in_use   integer;
+BEGIN
+  IF p_transaction_type NOT IN ('pemakaian', 'pengembalian', 'penitipan') THEN
+    RAISE EXCEPTION 'Jenis transaksi tidak valid: %', p_transaction_type;
+  END IF;
+
+  -- 1. Buat header transaksi
+  INSERT INTO transactions (transaction_type, actor_name, event_name, proof_photo_url, notes)
+  VALUES (p_transaction_type, p_actor_name, p_event_name, p_proof_photo_url, p_notes)
+  RETURNING id INTO v_transaction_id;
+
+  -- 2. Khusus Penitipan, tidak perlu proses item katalog
+  IF p_transaction_type = 'penitipan' THEN
+    RETURN v_transaction_id;
+  END IF;
+
+  IF jsonb_array_length(p_cart_items) = 0 THEN
+    RAISE EXCEPTION 'Cart tidak boleh kosong untuk transaksi ini';
+  END IF;
+
+  -- 3. Loop setiap item di cart (untuk Pemakaian & Pengembalian)
+  FOR v_cart_item IN SELECT * FROM jsonb_array_elements(p_cart_items)
+  LOOP
+    v_item_id  := (v_cart_item->>'item_id')::uuid;
+    v_quantity := (v_cart_item->>'quantity')::integer;
+
+    -- Lock row untuk menghindari race condition
+    SELECT is_consumable, stock_available, stock_in_use
+    INTO v_is_consumable, v_stock_avail, v_stock_in_use
+    FROM items
+    WHERE id = v_item_id
+    FOR UPDATE; 
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Barang dengan id % tidak ditemukan', v_item_id;
+    END IF;
+
+    -- Insert detail
+    INSERT INTO transaction_details (transaction_id, item_id, quantity)
+    VALUES (v_transaction_id, v_item_id, v_quantity);
+
+    -- Logika update stok
+    IF p_transaction_type = 'pemakaian' THEN
+      IF v_stock_avail < v_quantity THEN
+        RAISE EXCEPTION 'Stok tidak cukup untuk barang %', v_item_id;
+      END IF;
+      
+      IF v_is_consumable THEN
+        -- Barang Habis Pakai
+        UPDATE items SET stock_available = stock_available - v_quantity WHERE id = v_item_id;
+        IF (v_stock_avail - v_quantity) = 0 THEN
+          UPDATE items SET status = 'archived' WHERE id = v_item_id;
+        END IF;
+      ELSE
+        -- Barang Pinjaman
+        UPDATE items 
+        SET stock_available = stock_available - v_quantity,
+            stock_in_use = stock_in_use + v_quantity
+        WHERE id = v_item_id;
+      END IF;
+
+    ELSIF p_transaction_type = 'pengembalian' THEN
+      IF v_is_consumable THEN
+        RAISE EXCEPTION 'Barang consumable tidak bisa dikembalikan.';
+      END IF;
+      
+      -- Catatan: Validasi jumlah yang bisa dikembalikan bisa dilakukan via view active_loans
+      UPDATE items 
+      SET stock_available = stock_available + v_quantity,
+          stock_in_use = stock_in_use - v_quantity
+      WHERE id = v_item_id;
+
+      IF v_stock_avail = 0 THEN
+        UPDATE items SET status = 'active' WHERE id = v_item_id;
+      END IF;
+    END IF;
+  END LOOP;
+
+  RETURN v_transaction_id;
+END;
+$$;
+
+-- 3. View active_loans untuk melacak peminjam
+CREATE OR REPLACE VIEW active_loans AS
+SELECT 
+    t.actor_name,
+    t.event_name,
+    td.item_id,
+    i.name AS item_name,
+    SUM(CASE WHEN t.transaction_type = 'pemakaian' THEN td.quantity ELSE 0 END) -
+    SUM(CASE WHEN t.transaction_type = 'pengembalian' THEN td.quantity ELSE 0 END) AS unreturned_quantity
+FROM transactions t
+JOIN transaction_details td ON t.id = td.transaction_id
+JOIN items i ON td.item_id = i.id
+WHERE i.is_consumable = false
+GROUP BY t.actor_name, t.event_name, td.item_id, i.name
+HAVING (
+    SUM(CASE WHEN t.transaction_type = 'pemakaian' THEN td.quantity ELSE 0 END) -
+    SUM(CASE WHEN t.transaction_type = 'pengembalian' THEN td.quantity ELSE 0 END)
+) > 0;
+```nsumable
+   - Aksi: Kurangi `stock_available`, tambah `stock_in_use`.
+3. **Pengembali (Return)**
+   - Sasaran: Barang Non-Consumable
+   - Aksi: Tambah `stock_available`, kurangi `stock_in_use`.
+4. **Penaruh (Restock)**
+   - Sasaran: Semua Barang
+   - Aksi: Tambah `stock_available`.
 
 ### File yang akan Dibuat
 
