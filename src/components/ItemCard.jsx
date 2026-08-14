@@ -3,7 +3,7 @@
  *
  * Komponen ini menerima data barang via props dan menampilkannya sebagai kartu.
  * ItemCard TIDAK fetch data sendiri — data dikirim dari komponen induk (CatalogPage).
- * Ini adalah prinsip "dumb/presentational component": fokus hanya tampilan.
+ * Ini adalah prinsip "dumb/presentational component": fokus hanya pada tampilan.
  *
  * @param {object} props
  * @param {object} props.item - Data barang dari tabel items
@@ -15,12 +15,10 @@
  * @param {number} props.item.stock_available
  * @param {number} props.item.stock_in_use
  * @param {string} props.item.unit
- * @param {Function} [props.onClick] - Callback saat card diklik (untuk buka modal)
+ * @param {Function} [props.onClick] - Callback saat card diklik
+ * @param {React.ReactNode} [props.action] - Tombol aksi custom (jika ada)
  */
-import { useCart } from '../contexts/CartContext'
-
-function ItemCard({ item, onClick }) {
-  const { addToCart, cartItems } = useCart()
+function ItemCard({ item, onClick, action }) {
   /**
    * Menentukan warna dan label badge stok berdasarkan jumlah stok tersedia.
    * Logika ini membantu panitia langsung tahu urgensi stok tanpa hitung manual.
@@ -34,14 +32,7 @@ function ItemCard({ item, onClick }) {
     return               { label: `${stock} tersedia`, modifier: 'success' }
   }
 
-  const stockBadge     = getStockBadgeInfo(item.stock_available)
-  const isConsumable   = item.is_consumable
-  const isOutOfStock   = item.stock_available === 0
-
-  // Cek apakah barang ini sudah di cart
-  const cartEntry    = cartItems.find((e) => e.item.id === item.id)
-  const qtyInCart    = cartEntry ? cartEntry.quantity : 0
-  const isMaxInCart  = qtyInCart >= item.stock_available
+  const stockBadge = getStockBadgeInfo(item.stock_available)
 
   return (
     <article
@@ -59,16 +50,10 @@ function ItemCard({ item, onClick }) {
             loading="lazy" // Lazy load: gambar hanya dimuat saat masuk viewport
           />
         ) : (
-          // Placeholder jika tidak ada foto
           <div className="item-card__image-placeholder" aria-hidden="true">
             📦
           </div>
         )}
-
-        {/* Badge tipe barang (kanan atas foto) */}
-        <span className={`item-card__type-badge item-card__type-badge--${isConsumable ? 'consumable' : 'non-consumable'}`}>
-          {isConsumable ? 'Habis Pakai' : 'Pinjam'}
-        </span>
       </div>
 
       {/* === Info Barang === */}
@@ -85,31 +70,20 @@ function ItemCard({ item, onClick }) {
             {stockBadge.label} {item.unit}
           </span>
 
-          {/* Tampilkan "X sedang dipinjam" khusus non-consumable */}
-          {!isConsumable && item.stock_in_use > 0 && (
+          {/* Tampilkan unit yang sedang dipakai/dipinjam jika ada */}
+          {item.stock_in_use > 0 && (
             <span className="item-card__in-use">
-              {item.stock_in_use} dipinjam
+              {item.stock_in_use} dipakai
             </span>
           )}
         </div>
 
-        {/* === Tombol Aksi (placeholder untuk Fase 4) === */}
-        <button
-          className="item-card__btn"
-          disabled={isOutOfStock || isMaxInCart}
-          onClick={(e) => {
-            e.stopPropagation() // Cegah event klik tembus ke <article> (yang membuka modal)
-            addToCart(item, 1)
-          }}
-          aria-label={`Tambah ${item.name} ke keranjang`}
-        >
-          {isOutOfStock
-            ? 'Stok Habis'
-            : isMaxInCart
-              ? `Di Keranjang (${qtyInCart})`
-              : '+ Tambah ke Keranjang'
-          }
-        </button>
+        {/* === Custom Action === */}
+        {action && (
+          <div className="item-card__action-container" onClick={(e) => e.stopPropagation()}>
+            {action}
+          </div>
+        )}
       </div>
     </article>
   )

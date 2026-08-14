@@ -1,21 +1,24 @@
 /**
  * ItemDetailModal.jsx — Modal pop-up untuk menampilkan detail lengkap barang.
  *
- * Ditampilkan saat user mengklik ItemCard di katalog.
- * Memiliki fungsi untuk menambah barang ke keranjang secara langsung.
+ * Komponen ini ditampilkan saat panitia mengklik salah satu kartu barang (ItemCard) di katalog.
+ * Berisi informasi foto, status stok (tersedia & sedang dipinjam), deskripsi,
+ * serta daftar nama peminjam aktif untuk barang non-consumable.
  *
  * @param {object} props
- * @param {object} props.item - Data barang yang sedang ditampilkan
- * @param {Function} props.onClose - Callback saat modal ditutup
+ * @param {object} props.item - Data barang yang dipilih dari tabel items
+ * @param {Function} props.onClose - Callback function untuk menutup modal
  */
-import { useEffect } from 'react'
-import { useCart } from '../contexts/CartContext'
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabaseClient'
 import './ItemDetailModal.css'
 
 function ItemDetailModal({ item, onClose }) {
-  const { addToCart, cartItems } = useCart()
+  // State untuk menyimpan daftar peminjam / pemakai aktif
+  const [activeLoans, setActiveLoans] = useState([])
+  const [isLoadingLoans, setIsLoadingLoans] = useState(false)
 
-  // Mencegah body scrolling saat modal terbuka
+  // Mencegah background body scrolling saat modal pop-up sedang aktif
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => {
@@ -23,7 +26,7 @@ function ItemDetailModal({ item, onClose }) {
     }
   }, [])
 
-  // Menutup modal dengan tombol Escape
+  // Menutup modal secara instan jika user menekan tombol 'Escape' di keyboard
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose()
@@ -32,15 +35,31 @@ function ItemDetailModal({ item, onClose }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
+  // Mengambil data peminjam/pemakai aktif dari SQL View 'active_loans'
+  useEffect(() => {
+    async function fetchLoans() {
+      if (!item || item.stock_in_use === 0) return
+
+      setIsLoadingLoans(true)
+      try {
+        // Menggunakan select('*') agar fleksibel terhadap nama kolom
+        const { data, error } = await supabase
+          .from('active_loans')
+          .select('*')
+          .eq('item_id', item.id)
+
+        if (error) throw error
+        if (data) setActiveLoans(data)
+      } catch (err) {
+        console.error('Gagal mengambil data peminjam dari active_loans:', err)
+      } finally {
+        setIsLoadingLoans(false)
+      }
+    }
+    fetchLoans()
+  }, [item])
+
   if (!item) return null
-
-  const isConsumable = item.is_consumable
-  const isOutOfStock = item.stock_available === 0
-
-  // Status barang di keranjang
-  const cartEntry = cartItems.find((e) => e.item.id === item.id)
-  const qtyInCart = cartEntry ? cartEntry.quantity : 0
-  const isMaxInCart = qtyInCart >= item.stock_available
 
   return (
     <>
@@ -75,9 +94,6 @@ function ItemDetailModal({ item, onClose }) {
         <div className="item-modal__content">
           <div className="item-modal__header">
             <h2 id="modal-title" className="item-modal__title">{item.name}</h2>
-            <span className={`item-modal__type-badge ${isConsumable ? 'consumable' : 'non-consumable'}`}>
-              {isConsumable ? 'HABIS PAKAI' : 'PINJAM'}
-            </span>
           </div>
 
           {/* Info Stok Lengkap */}
@@ -86,9 +102,9 @@ function ItemDetailModal({ item, onClose }) {
               <span className="stock-box__label">Tersedia</span>
               <span className="stock-box__value">{item.stock_available} {item.unit}</span>
             </div>
-            {!isConsumable && (
+            {item.stock_in_use > 0 && (
               <div className="stock-box in-use">
-                <span className="stock-box__label">Sedang Dipinjam</span>
+                <span className="stock-box__label">Sedang Dipakai</span>
                 <span className="stock-box__value">{item.stock_in_use} {item.unit}</span>
               </div>
             )}
@@ -98,21 +114,31 @@ function ItemDetailModal({ item, onClose }) {
             {item.description || 'Tidak ada deskripsi tersedia untuk barang ini.'}
           </p>
 
-          {/* Tombol Aksi */}
-          <div className="item-modal__actions">
-            <button
-              className="item-modal__add-btn"
-              disabled={isOutOfStock || isMaxInCart}
-              onClick={() => addToCart(item, 1)}
-            >
-              {isOutOfStock
-                ? 'Stok Habis'
-                : isMaxInCart
-                  ? `Sudah Max di Keranjang (${qtyInCart})`
-                  : '+ Tambah ke Keranjang'
-              }
-            </button>
-          </div>
+          {/* Daftar Pemakai / Peminjam Aktif */}
+          {item.stock_in_use > 0 && (
+            <div className="item-modal__borrowers">
+              <h4 className="item-modal__borrowers-title">Sedang Dibawa Oleh:</h4>
+              {isLoadingLoans ? (
+                <p className="item-modal__borrowers-loading">Memuat data pemakai...</p>
+              ) : activeLoans.length > 0 ? (
+                <ul className="item-modal__borrowers-list">
+                  {activeLoans.map((loan, idx) => (
+                    <li key={idx}>
+                      <span>
+                        <strong>{loan.actor_name}</strong>
+                        {loan.event_name && <span className="item-modal__borrower-event"> ({loan.event_name})</span>}
+                      </span>
+                      <span>
+                        {loan.qty_borrowed ?? loan.unreturned_quantity ?? 0} {item.unit}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="item-modal__borrowers-empty">Belum ada data pemakai tercatat.</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>
