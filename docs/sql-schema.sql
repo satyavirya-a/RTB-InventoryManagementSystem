@@ -63,13 +63,11 @@ COMMENT ON COLUMN items.status          IS 'active | archived';
 CREATE TABLE IF NOT EXISTS transactions (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  -- 4 jenis transaksi sesuai PRD:
-  -- 'penaruh'    = menaruh/menambah stok
-  -- 'pengambil'  = mengambil barang consumable
-  -- 'peminjam'   = meminjam barang non-consumable
-  -- 'pengembali' = mengembalikan barang yang dipinjam
-  transaction_type text NOT NULL
-                        CHECK (transaction_type IN ('penaruh', 'pengambil', 'peminjam', 'pengembali')),
+  -- 3 jenis transaksi (Refaktor Fase 5.5):
+  -- 'pemakaian'    = mengambil barang (consumable) atau meminjam barang (non-consumable)
+  -- 'pengembalian' = mengembalikan barang yang dipinjam (non-consumable)
+  -- 'penitipan'    = sekadar mencatat log barang masuk, tidak mengubah stok katalog
+  transaction_type text NOT NULL CHECK (transaction_type IN ('pemakaian', 'pengembalian', 'penitipan')),
 
   actor_name       text NOT NULL,        -- Nama panitia yang melakukan transaksi
   event_name       text,                 -- Untuk event apa transaksi ini
@@ -83,7 +81,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_type    ON transactions(transaction_
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC);
 
 COMMENT ON TABLE  transactions IS 'Header transaksi gudang — satu baris per checkout';
-COMMENT ON COLUMN transactions.transaction_type IS 'penaruh | pengambil | peminjam | pengembali';
+COMMENT ON COLUMN transactions.transaction_type IS 'pemakaian | pengembalian | penitipan';
 
 
 -- -----------------------------------------------------------------------------
@@ -128,10 +126,10 @@ CREATE OR REPLACE TRIGGER trg_items_updated_at
 
 
 -- -----------------------------------------------------------------------------
--- 5. FUNGSI RPC: process_checkout_transaction (KERANGKA — dilengkapi di Fase 5)
+-- 5. FUNGSI RPC: process_checkout_transaction
 --    Fungsi ini memproses satu kali checkout secara ATOMIK:
 --    - Insert header transaksi
---    - Insert detail per item
+--    - Insert detail per item (untuk Pemakaian & Pengembalian)
 --    - Update stok sesuai jenis transaksi
 --    Jika satu langkah gagal, SEMUA dibatalkan (rollback otomatis).
 -- -----------------------------------------------------------------------------
@@ -153,15 +151,11 @@ DECLARE
   v_quantity       integer;
   v_is_consumable  boolean;
   v_stock_avail    integer;
+  v_stock_in_use   integer;
 BEGIN
   -- Validasi jenis transaksi
-  IF p_transaction_type NOT IN ('penaruh', 'pengambil', 'peminjam', 'pengembali') THEN
+  IF p_transaction_type NOT IN ('pemakaian', 'pengembalian', 'penitipan') THEN
     RAISE EXCEPTION 'Jenis transaksi tidak valid: %', p_transaction_type;
-  END IF;
-
-  -- Validasi cart tidak kosong
-  IF jsonb_array_length(p_cart_items) = 0 THEN
-    RAISE EXCEPTION 'Cart tidak boleh kosong';
   END IF;
 
   -- 1. Buat header transaksi
@@ -169,15 +163,25 @@ BEGIN
   VALUES (p_transaction_type, p_actor_name, p_event_name, p_proof_photo_url, p_notes)
   RETURNING id INTO v_transaction_id;
 
+  -- Khusus Penitipan, tidak perlu proses detail item
+  IF p_transaction_type = 'penitipan' THEN
+    RETURN v_transaction_id;
+  END IF;
+
+  -- Validasi cart tidak kosong untuk pemakaian/pengembalian
+  IF jsonb_array_length(p_cart_items) = 0 THEN
+    RAISE EXCEPTION 'Cart tidak boleh kosong untuk transaksi ini';
+  END IF;
+
   -- 2. Loop setiap item di cart
   FOR v_cart_item IN SELECT * FROM jsonb_array_elements(p_cart_items)
   LOOP
     v_item_id  := (v_cart_item->>'item_id')::uuid;
     v_quantity := (v_cart_item->>'quantity')::integer;
 
-    -- Ambil data item (lock row agar tidak ada race condition)
-    SELECT is_consumable, stock_available
-    INTO v_is_consumable, v_stock_avail
+    -- 3. Ambil data item (lock row agar tidak ada race condition)
+    SELECT is_consumable, stock_available, stock_in_use
+    INTO v_is_consumable, v_stock_avail, v_stock_in_use
     FROM items
     WHERE id = v_item_id
     FOR UPDATE;  -- <-- Kunci baris ini selama transaksi berjalan
@@ -186,23 +190,34 @@ BEGIN
       RAISE EXCEPTION 'Barang dengan id % tidak ditemukan', v_item_id;
     END IF;
 
-    -- 3. Insert detail
+    -- 4. Insert detail transaksi
     INSERT INTO transaction_details (transaction_id, item_id, quantity)
     VALUES (v_transaction_id, v_item_id, v_quantity);
 
-    -- 4. Update stok sesuai jenis transaksi (LOGIKA PENUH ditambahkan di Fase 5)
-    -- TODO Fase 5: tambahkan logika IF per transaction_type di sini
-    --
-    -- Contoh untuk 'pengambil':
-    -- IF p_transaction_type = 'pengambil' THEN
-    --   IF v_stock_avail < v_quantity THEN
-    --     RAISE EXCEPTION 'Stok tidak cukup untuk barang %', v_item_id;
-    --   END IF;
-    --   UPDATE items SET stock_available = stock_available - v_quantity WHERE id = v_item_id;
-    --   IF (v_stock_avail - v_quantity) = 0 THEN
-    --     UPDATE items SET status = 'archived' WHERE id = v_item_id;
-    --   END IF;
-    -- END IF;
+    -- 5. Update stok sesuai jenis transaksi (General Inventory System)
+    IF p_transaction_type = 'pemakaian' THEN
+      IF v_stock_avail < v_quantity THEN
+        RAISE EXCEPTION 'Stok tidak cukup untuk barang %', v_item_id;
+      END IF;
+      
+      -- Semua barang: kurangi stok tersedia dan tambah stok sedang dipakai
+      UPDATE items 
+      SET stock_available = stock_available - v_quantity,
+          stock_in_use = stock_in_use + v_quantity
+      WHERE id = v_item_id;
+
+    ELSIF p_transaction_type = 'pengembalian' THEN
+      -- Validasi: jumlah yang dikembalikan tidak boleh melebihi jumlah yang sedang dipakai/dipinjam
+      IF v_stock_in_use < v_quantity THEN
+        RAISE EXCEPTION 'Jumlah pengembalian (% unit) melebihi jumlah barang yang sedang dipakai (% unit)', v_quantity, v_stock_in_use;
+      END IF;
+
+      -- Semua barang: kembalikan stok ke tersedia dan kurangi stok sedang dipakai
+      UPDATE items 
+      SET stock_available = stock_available + v_quantity,
+          stock_in_use = stock_in_use - v_quantity
+      WHERE id = v_item_id;
+    END IF;
 
   END LOOP;
 
@@ -210,12 +225,33 @@ BEGIN
 END;
 $$;
 
+-- -----------------------------------------------------------------------------
+-- 6. VIEW: active_loans
+--    Melihat siapa yang masih membawa/memakai barang (belum dikembalikan)
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE VIEW active_loans AS
+SELECT 
+    t.actor_name,
+    t.event_name,
+    td.item_id,
+    i.name AS item_name,
+    SUM(CASE WHEN t.transaction_type = 'pemakaian' THEN td.quantity ELSE 0 END) -
+    SUM(CASE WHEN t.transaction_type = 'pengembalian' THEN td.quantity ELSE 0 END) AS unreturned_quantity
+FROM transactions t
+JOIN transaction_details td ON t.id = td.transaction_id
+JOIN items i ON td.item_id = i.id
+GROUP BY t.actor_name, t.event_name, td.item_id, i.name
+HAVING (
+    SUM(CASE WHEN t.transaction_type = 'pemakaian' THEN td.quantity ELSE 0 END) -
+    SUM(CASE WHEN t.transaction_type = 'pengembalian' THEN td.quantity ELSE 0 END)
+) > 0;
+
 COMMENT ON FUNCTION process_checkout_transaction IS
   'Proses checkout atomik: insert transaksi + update stok semua item dalam satu DB transaction. Logika stok penuh ditambahkan di Fase 5.';
 
 
 -- -----------------------------------------------------------------------------
--- 6. ROW LEVEL SECURITY (RLS) POLICIES
+-- 7. ROW LEVEL SECURITY (RLS) POLICIES
 --    RLS mengatur siapa boleh baca/tulis data di level baris database.
 --
 --    KONTEKS:
@@ -241,12 +277,14 @@ COMMENT ON FUNCTION process_checkout_transaction IS
 -- === TABEL: items ===
 
 -- Siapa pun (termasuk user yang belum login) bisa membaca katalog barang
+DROP POLICY IF EXISTS "Public dapat membaca items" ON items;
 CREATE POLICY "Public dapat membaca items"
   ON items
   FOR SELECT
   USING (true);
 
 -- Siapa pun bisa menambah barang baru (MVP — diperketat di Fase 7)
+DROP POLICY IF EXISTS "Public dapat insert items" ON items;
 CREATE POLICY "Public dapat insert items"
   ON items
   FOR INSERT
@@ -255,6 +293,7 @@ CREATE POLICY "Public dapat insert items"
 -- Siapa pun bisa mengubah stok barang (MVP — diperketat di Fase 7)
 -- Perubahan stok yang BENAR dilakukan via RPC function, bukan langsung UPDATE.
 -- Policy ini dibutuhkan agar RPC function bisa mengeksekusi UPDATE.
+DROP POLICY IF EXISTS "Public dapat update items" ON items;
 CREATE POLICY "Public dapat update items"
   ON items
   FOR UPDATE
@@ -264,12 +303,14 @@ CREATE POLICY "Public dapat update items"
 -- === TABEL: transactions ===
 
 -- Siapa pun bisa membaca riwayat transaksi
+DROP POLICY IF EXISTS "Public dapat membaca transactions" ON transactions;
 CREATE POLICY "Public dapat membaca transactions"
   ON transactions
   FOR SELECT
   USING (true);
 
 -- Siapa pun bisa membuat transaksi baru (MVP — diperketat di Fase 7)
+DROP POLICY IF EXISTS "Public dapat insert transactions" ON transactions;
 CREATE POLICY "Public dapat insert transactions"
   ON transactions
   FOR INSERT
@@ -279,12 +320,14 @@ CREATE POLICY "Public dapat insert transactions"
 -- === TABEL: transaction_details ===
 
 -- Siapa pun bisa membaca detail transaksi
+DROP POLICY IF EXISTS "Public dapat membaca transaction_details" ON transaction_details;
 CREATE POLICY "Public dapat membaca transaction_details"
   ON transaction_details
   FOR SELECT
   USING (true);
 
 -- Siapa pun bisa menambah detail transaksi (MVP — diperketat di Fase 7)
+DROP POLICY IF EXISTS "Public dapat insert transaction_details" ON transaction_details;
 CREATE POLICY "Public dapat insert transaction_details"
   ON transaction_details
   FOR INSERT
@@ -305,7 +348,7 @@ CREATE POLICY "Public dapat insert transaction_details"
 
 
 -- -----------------------------------------------------------------------------
--- 7. DATA SAMPLE (opsional — untuk testing awal)
+-- 8. DATA SAMPLE (opsional — untuk testing awal)
 --    Hapus atau comment section ini jika tidak dibutuhkan
 -- -----------------------------------------------------------------------------
 -- INSERT INTO items (name, description, is_consumable, stock_available, unit, event_name)
