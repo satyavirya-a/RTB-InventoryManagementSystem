@@ -1,0 +1,315 @@
+.wizard-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+  background: var(--bg-base);
+  min-height: 100vh;
+  width: 100%;
+}
+
+.wizard-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--bg-border);
+  padding-bottom: var(--space-4);
+}
+
+.wizard-header h2 {
+  font-size: clamp(1.15rem, 3.5vw, 1.5rem);
+  color: var(--text-primary);
+  text-align: center;
+  margin: 0;
+}
+
+.wizard-progress {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.btn-back {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: var(--space-2) 0;
+  white-space: nowrap;
+}
+
+.btn-back:hover:not(:disabled) {
+  color: var(--color-primary);
+}
+
+.btn-back:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wizard-step {
+  background: var(--bg-surface);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--bg-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.wizard-step h3 {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-xl);
+  color: var(--text-primary);
+}
+
+.wizard-step > p {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-5);
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Forms */
+.wizard-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-group label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.form-group input,
+.form-group textarea {
+  padding: var(--space-3);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: 2px solid var(--color-primary);
+  border-color: transparent;
+}
+
+/* Local Cart (Barang Terpilih) */
+.local-cart {
+  background: var(--bg-base);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.local-cart h4 {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+  color: var(--color-primary);
+  font-size: 0.95rem;
+}
+
+.local-cart ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.local-cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--bg-border);
+  gap: var(--space-3);
+}
+
+.local-cart-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.local-cart-actions button {
+  background: var(--bg-border);
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-weight: bold;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.local-cart-actions button:hover {
+  background: var(--text-secondary);
+  color: white;
+}
+
+.qty-badge {
+  font-weight: 600;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* Wrapper Katalog (Clean & Seamless) */
+.catalog-wrapper {
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+/* Summary Box */
+.summary-box {
+  background: var(--bg-base);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--bg-border);
+  margin-bottom: var(--space-4);
+}
+
+.summary-box p {
+  margin: var(--space-2) 0;
+  color: var(--text-secondary);
+}
+
+.summary-box strong {
+  color: var(--text-primary);
+}
+
+.summary-items {
+  margin-top: var(--space-4);
+}
+
+.summary-items h4 {
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.summary-items ul {
+  list-style: inside;
+  padding-left: var(--space-2);
+  color: var(--text-secondary);
+}
+
+/* Actions */
+.wizard-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  justify-content: flex-end;
+}
+
+.btn-primary, .btn-secondary, .btn-success {
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.btn-primary:hover:not(:disabled), 
+.btn-secondary:hover:not(:disabled), 
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled, .btn-secondary:disabled, .btn-success:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.btn-secondary {
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-border);
+}
+
+.btn-success {
+  background: var(--color-success);
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.wizard-error {
+  background: hsla(0, 84%, 60%, 0.1);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+/* Mobile Adjustments */
+@media (max-width: 640px) {
+  .wizard-container {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .wizard-step {
+    padding: var(--space-4) var(--space-3);
+    border-radius: var(--radius-md);
+  }
+
+  .wizard-actions {
+    flex-direction: column-reverse;
+    gap: var(--space-2);
+  }
+
+  .btn-primary, .btn-secondary, .btn-success {
+    width: 100%;
+    text-align: center;
+    padding: var(--space-3);
+  }
+}

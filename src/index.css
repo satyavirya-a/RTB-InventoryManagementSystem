@@ -242,15 +242,25 @@ a {
    ========================================================================== */
 
 .catalog-page {
-  padding: var(--space-5) var(--space-4);
-  max-width: 900px;
+  padding: var(--space-6) 0;
+  max-width: 1240px;
   margin: 0 auto;
   width: 100%;
 }
 
+/* Khusus saat disematkan di dalam Wizard Transaksi (tidak perlu padding ganda) */
+.catalog-page--embedded {
+  padding: 0;
+  max-width: 100%;
+}
+
+.catalog-page--embedded .catalog-header {
+  margin-bottom: var(--space-4);
+}
+
 /* --- Header Katalog --- */
 .catalog-header {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -264,9 +274,10 @@ a {
 }
 
 .catalog-header__title {
-  font-size: var(--font-size-xl);
-  font-weight: 700;
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .catalog-header__count {
@@ -279,12 +290,13 @@ a {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .catalog-search__icon {
   position: absolute;
   left: var(--space-4);
-  font-size: var(--font-size-sm);
+  font-size: 1.1rem;
   pointer-events: none;
 }
 
@@ -292,8 +304,8 @@ a {
   width: 100%;
   background: var(--bg-surface);
   border: 1px solid var(--bg-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) + 1.5rem);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5) var(--space-4) calc(var(--space-4) + 1.8rem);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
@@ -304,7 +316,7 @@ a {
 .catalog-search__input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px hsla(217, 91%, 60%, 0.15);
+  box-shadow: 0 0 0 3px hsla(217, 91%, 60%, 0.2);
 }
 
 /* Sembunyikan tombol X bawaan browser di input type=search */
@@ -312,34 +324,45 @@ a {
 
 .catalog-search__clear {
   position: absolute;
-  right: var(--space-3);
+  right: var(--space-4);
   background: var(--bg-border);
   border: none;
   border-radius: var(--radius-full);
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
   transition: background var(--transition-fast);
 }
 
 .catalog-search__clear:hover { background: var(--bg-surface-hover); }
 
-/* --- Grid Barang --- */
+/* --- Grid Barang Responsif --- */
 .catalog-grid {
   display: grid;
-  /* auto-fill: isi sebanyak mungkin kolom yang muat
-     minmax(160px, 1fr): minimum 160px, maksimum 1 bagian ruang */
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-4);
+  /* Default HP: 2 kolom yang proporsional dan tidak raksasa */
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  width: 100%;
 }
 
-/* Tablet ke atas: card agak lebih besar */
-@media (min-width: 480px) {
-  .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+/* Tablet: 3-4 kolom */
+@media (min-width: 600px) {
+  .catalog-grid { 
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); 
+    gap: var(--space-4);
+  }
+}
+
+/* Desktop: kartu lega dan lapang (4 - 5 kolom) */
+@media (min-width: 960px) {
+  .catalog-grid { 
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); 
+    gap: var(--space-6);
+  }
 }
 
 /* --- State Cards (Loading / Error / Empty) --- */
@@ -383,12 +406,17 @@ a {
 /* --- Skeleton Loading --- */
 .catalog-skeleton-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  width: 100%;
 }
 
-@media (min-width: 480px) {
-  .catalog-skeleton-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+@media (min-width: 600px) {
+  .catalog-skeleton-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-4); }
+}
+
+@media (min-width: 900px) {
+  .catalog-skeleton-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--space-5); }
 }
 
 .skeleton-card {

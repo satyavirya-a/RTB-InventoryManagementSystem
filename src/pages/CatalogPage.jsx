@@ -11,6 +11,8 @@
  * CatalogPage (smart/container) → mengambil data, mengatur state
  *   └─ ItemCard (dumb/presentational) → hanya tampilkan data yang diterima
  *
+ * @param {object} props
+ * @param {Function} [props.onItemClick] - Jika diberikan, klik barang akan memanggil fungsi ini (digunakan di dalam TransactionWizard)
  * @returns {JSX.Element}
  */
 import { useState } from 'react'
@@ -19,25 +21,29 @@ import ItemCard from '../components/ItemCard'
 import ItemDetailModal from '../components/ItemDetailModal'
 import '../components/ItemCard.css'
 
-function CatalogPage() {
+function CatalogPage({ onItemClick }) {
   const { items, isLoading, error, searchQuery, setSearchQuery, totalItems } = useItems()
   const [selectedItem, setSelectedItem] = useState(null)
 
+  // Apakah halaman ini sedang disematkan di dalam Wizard transaksi?
+  const isEmbedded = Boolean(onItemClick)
+
   return (
-    <div className="catalog-page">
+    <div className={`catalog-page ${isEmbedded ? 'catalog-page--embedded' : ''}`}>
       {/* === Header Halaman === */}
       <div className="catalog-header">
-        <div className="catalog-header__title-group">
-          <h2 className="catalog-header__title">Katalog Barang</h2>
-          {/* Tampilkan jumlah hasil hanya saat tidak loading */}
-          {!isLoading && (
-            <span className="catalog-header__count">
-              {searchQuery
-                ? `${items.length} dari ${totalItems} barang`
-                : `${totalItems} barang tersedia`}
-            </span>
-          )}
-        </div>
+        {!isEmbedded && (
+          <div className="catalog-header__title-group">
+            <h2 className="catalog-header__title">Katalog Barang</h2>
+            {!isLoading && (
+              <span className="catalog-header__count">
+                {searchQuery
+                  ? `${items.length} dari ${totalItems} barang`
+                  : `${totalItems} barang tersedia`}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* === Search Bar === */}
         <div className="catalog-search">
@@ -46,12 +52,11 @@ function CatalogPage() {
             id="catalog-search-input"
             type="search"
             className="catalog-search__input"
-            placeholder="Cari nama barang..."
+            placeholder={isEmbedded ? "Ketik untuk mencari barang yang mau dipilih..." : "Cari nama barang..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Cari barang"
           />
-          {/* Tombol hapus search yang muncul saat ada teks */}
           {searchQuery && (
             <button
               className="catalog-search__clear"
@@ -123,17 +128,28 @@ function CatalogPage() {
         <div className="catalog-grid" role="list" aria-label="Daftar barang">
           {items.map((item) => (
             <div key={item.id} role="listitem">
-              <ItemCard item={item} onClick={() => setSelectedItem(item)} />
+              <ItemCard 
+                item={item} 
+                onClick={() => {
+                  if (onItemClick) {
+                    onItemClick(item) // Mode Wizard: memicu penambahan barang ke form
+                  } else {
+                    setSelectedItem(item) // Mode Default: membuka modal detail
+                  }
+                }} 
+              />
             </div>
           ))}
         </div>
       )}
 
-      {/* Render modal jika ada barang yang dipilih */}
-      <ItemDetailModal
-        item={selectedItem}
-        onClose={() => setSelectedItem(null)}
-      />
+      {/* Render modal jika ada barang yang dipilih (dan bukan dalam mode onItemClick) */}
+      {!onItemClick && (
+        <ItemDetailModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
     </div>
   )
 }
