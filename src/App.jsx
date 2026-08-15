@@ -12,17 +12,27 @@ import Dashboard from './pages/Dashboard'
 import TransactionWizard from './pages/TransactionWizard'
 
 function App() {
-  // state untuk melacak view aktif: 'dashboard', 'wizard_pemakaian', 'wizard_pengembalian', 'wizard_penitipan'
+  // state untuk melacak view aktif: 'dashboard', 'wizard_pemakaian', 'wizard_pengembalian', 'wizard_penitipan', 'wizard_pengambilan'
   const [currentView, setCurrentView] = useState('dashboard')
+  const [selectedDeposit, setSelectedDeposit] = useState(null)
+
+  const handleNavigate = (view, payload = null) => {
+    setSelectedDeposit(payload)
+    setCurrentView(view)
+  }
 
   return (
     <div className="app-container">
       {currentView === 'dashboard' ? (
-        <Dashboard onNavigate={(view) => setCurrentView(view)} />
+        <Dashboard onNavigate={handleNavigate} />
       ) : (
         <TransactionWizard 
           type={currentView} 
-          onCancel={() => setCurrentView('dashboard')} 
+          initialDepositItem={selectedDeposit}
+          onCancel={() => {
+            setSelectedDeposit(null)
+            setCurrentView('dashboard')
+          }} 
         />
       )}
     </div>

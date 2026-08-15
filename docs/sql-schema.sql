@@ -63,25 +63,35 @@ COMMENT ON COLUMN items.status          IS 'active | archived';
 CREATE TABLE IF NOT EXISTS transactions (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  -- 3 jenis transaksi (Refaktor Fase 5.5):
-  -- 'pemakaian'    = mengambil barang (consumable) atau meminjam barang (non-consumable)
-  -- 'pengembalian' = mengembalikan barang yang dipinjam (non-consumable)
-  -- 'penitipan'    = sekadar mencatat log barang masuk, tidak mengubah stok katalog
-  transaction_type text NOT NULL CHECK (transaction_type IN ('pemakaian', 'pengembalian', 'penitipan')),
+  -- 5 jenis transaksi inventaris:
+  -- 'pemakaian'    = mengambil atau meminjam barang dari gudang
+  -- 'pengembalian' = mengembalikan barang yang sedang dipinjam
+  -- 'penitipan'    = mencatat titipan barang luar ke dalam gudang
+  -- 'pengambilan'  = mengambil kembali barang titipan yang ada di gudang
+  -- 'penambahan'   = log penambahan barang baru oleh PIC gudang
+  -- 'penghapusan'   = log penghapusan barang dari katalog oleh PIC gudang
+  transaction_type text NOT NULL CHECK (transaction_type IN ('pemakaian', 'pengembalian', 'penitipan', 'pengambilan', 'penambahan', 'penghapusan')),
 
   actor_name       text NOT NULL,        -- Nama panitia yang melakukan transaksi
   event_name       text,                 -- Untuk event apa transaksi ini
   proof_photo_url  text,                 -- URL foto bukti (sudah dikompresi)
   notes            text,                 -- Catatan tambahan opsional
+  
+  -- Foreign Key self-referencing: Khusus untuk transaksi 'pengambilan',
+  -- mereferensikan ID transaksi 'penitipan' awal yang diambil.
+  related_transaction_id uuid REFERENCES transactions(id) ON DELETE SET NULL,
+  
   created_at       timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_transactions_actor   ON transactions(actor_name);
 CREATE INDEX IF NOT EXISTS idx_transactions_type    ON transactions(transaction_type);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_related ON transactions(related_transaction_id);
 
-COMMENT ON TABLE  transactions IS 'Header transaksi gudang — satu baris per checkout';
-COMMENT ON COLUMN transactions.transaction_type IS 'pemakaian | pengembalian | penitipan';
+COMMENT ON TABLE  transactions IS 'Header transaksi gudang — satu baris per checkout/aksi';
+COMMENT ON COLUMN transactions.transaction_type IS 'pemakaian | pengembalian | penitipan | pengambilan | penambahan | penghapusan';
+COMMENT ON COLUMN transactions.related_transaction_id IS 'ID transaksi penitipan yang diambil kembali (khusus pengambilan)';
 
 
 -- -----------------------------------------------------------------------------
@@ -227,7 +237,7 @@ $$;
 
 -- -----------------------------------------------------------------------------
 -- 6. VIEW: active_loans
---    Melihat siapa yang masih membawa/memakai barang (belum dikembalikan)
+--    Melihat siapa yang masih membawa/memakai barang inventaris (belum dikembalikan)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW active_loans AS
 SELECT 
@@ -245,6 +255,28 @@ HAVING (
     SUM(CASE WHEN t.transaction_type = 'pemakaian' THEN td.quantity ELSE 0 END) -
     SUM(CASE WHEN t.transaction_type = 'pengembalian' THEN td.quantity ELSE 0 END)
 ) > 0;
+
+-- -----------------------------------------------------------------------------
+-- 6.1 VIEW: active_deposits
+--     Melihat daftar barang titipan yang saat ini masih tersimpan (belum diambil)
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE VIEW active_deposits AS
+SELECT 
+    t.id,
+    t.actor_name AS depositor_name,
+    t.event_name,
+    t.proof_photo_url,
+    t.notes,
+    t.created_at AS deposited_at
+FROM transactions t
+WHERE t.transaction_type = 'penitipan'
+  AND t.id NOT IN (
+    SELECT related_transaction_id 
+    FROM transactions 
+    WHERE transaction_type = 'pengambilan' 
+      AND related_transaction_id IS NOT NULL
+  )
+ORDER BY t.created_at DESC;
 
 COMMENT ON FUNCTION process_checkout_transaction IS
   'Proses checkout atomik: insert transaksi + update stok semua item dalam satu DB transaction. Logika stok penuh ditambahkan di Fase 5.';
@@ -348,13 +380,39 @@ CREATE POLICY "Public dapat insert transaction_details"
 
 
 -- -----------------------------------------------------------------------------
--- 8. DATA SAMPLE (opsional — untuk testing awal)
---    Hapus atau comment section ini jika tidak dibutuhkan
+-- 8. SUPABASE STORAGE BUCKETS & POLICIES (Fase 6)
+--    Menyiapkan bucket 'item-photos' dan 'transaction-proofs' dengan akses publik.
 -- -----------------------------------------------------------------------------
--- INSERT INTO items (name, description, is_consumable, stock_available, unit, event_name)
--- VALUES
---   ('Double Tape', 'Ukuran 1 inch', true, 10, 'roll', 'Event A'),
---   ('Kabel Ties', '30cm', true, 50, 'pcs', 'Event A'),
---   ('Proyektor', 'Epson EB-X05', false, 2, 'unit', 'Event B'),
---   ('Kabel HDMI', '3 meter', false, 5, 'pcs', 'Event B');
+
+-- 1. Buat bucket penyimpanan (jika belum ada) dan set sebagai Public
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('item-photos', 'item-photos', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('transaction-proofs', 'transaction-proofs', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- 2. Policy agar foto bisa dibaca/dilihat oleh siapa pun (Public Read)
+DROP POLICY IF EXISTS "Public Read item-photos" ON storage.objects;
+CREATE POLICY "Public Read item-photos" 
+  ON storage.objects FOR SELECT 
+  USING (bucket_id = 'item-photos');
+
+DROP POLICY IF EXISTS "Public Read transaction-proofs" ON storage.objects;
+CREATE POLICY "Public Read transaction-proofs" 
+  ON storage.objects FOR SELECT 
+  USING (bucket_id = 'transaction-proofs');
+
+-- 3. Policy agar foto bisa diunggah (Public Upload - MVP)
+DROP POLICY IF EXISTS "Public Upload item-photos" ON storage.objects;
+CREATE POLICY "Public Upload item-photos" 
+  ON storage.objects FOR INSERT 
+  WITH CHECK (bucket_id = 'item-photos');
+
+DROP POLICY IF EXISTS "Public Upload transaction-proofs" ON storage.objects;
+CREATE POLICY "Public Upload transaction-proofs" 
+  ON storage.objects FOR INSERT 
+  WITH CHECK (bucket_id = 'transaction-proofs');
+
 
