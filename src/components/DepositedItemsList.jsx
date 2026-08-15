@@ -198,19 +198,34 @@ function DepositedItemsList({
                 onClick={() => isSelectMode && onSelect && onSelect(item)}
               >
                 {/* Foto Bukti Titipan */}
-                <div className="deposit-card__image-wrapper">
-                  {item.proof_photo_url ? (
-                    <img
-                      src={item.proof_photo_url}
-                      alt={title}
-                      className="deposit-card__image"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="deposit-card__image-placeholder">🎒</div>
-                  )}
-                  <span className="deposit-card__badge-status">Sedang Dititipkan</span>
-                </div>
+                {(() => {
+                  const photoUrls = (item.proof_photo_url || '')
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                  const firstPhoto = photoUrls[0] || null
+
+                  return (
+                    <div className="deposit-card__image-wrapper">
+                      {firstPhoto ? (
+                        <img
+                          src={firstPhoto}
+                          alt={title}
+                          className="deposit-card__image"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="deposit-card__image-placeholder">🎒</div>
+                      )}
+                      <span className="deposit-card__badge-status">Sedang Dititipkan</span>
+                      {photoUrls.length > 1 && (
+                        <span className="deposit-card__badge-photos" style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '12px' }}>
+                          📷 {photoUrls.length} Foto
+                        </span>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Body Informasi */}
                 <div className="deposit-card__body">

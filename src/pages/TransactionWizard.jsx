@@ -17,7 +17,7 @@ import CatalogPage from './CatalogPage'
 import DepositedItemsList from '../components/DepositedItemsList'
 import PhotoUpload from '../components/PhotoUpload'
 import { supabase } from '../lib/supabaseClient'
-import { uploadImageToStorage } from '../lib/storageService'
+import { uploadImageToStorage, uploadMultipleImagesToStorage } from '../lib/storageService'
 import { syncTransactionToGoogle } from '../lib/googleSyncService'
 import './TransactionWizard.css'
 
@@ -37,9 +37,9 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
   // Data Khusus Pengambilan Barang Titipan
   const [selectedDeposit, setSelectedDeposit] = useState(initialDepositItem)
 
-  // State Foto Bukti (File terkompresi & URL Pratinjau)
-  const [proofPhotoFile, setProofPhotoFile] = useState(null)
-  const [proofPhotoPreview, setProofPhotoPreview] = useState(null)
+  // State Multi-Foto Bukti (Array File terkompresi & Array URL Pratinjau)
+  const [proofPhotoFiles, setProofPhotoFiles] = useState([])
+  const [proofPhotoPreviews, setProofPhotoPreviews] = useState([])
 
   // Keranjang lokal untuk transaksi Pemakaian & Pengembalian
   const [cartItems, setCartItems] = useState([])
@@ -141,10 +141,11 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
     try {
       let finalPhotoUrl = null
 
-      // 1. Upload foto bukti ke Supabase Storage (jika ada)
-      if (proofPhotoFile) {
+      // 1. Upload multi-foto bukti ke Supabase Storage (jika ada)
+      if (proofPhotoFiles && proofPhotoFiles.length > 0) {
         try {
-          finalPhotoUrl = await uploadImageToStorage(proofPhotoFile, 'transaction-proofs')
+          const uploadedUrls = await uploadMultipleImagesToStorage(proofPhotoFiles, 'transaction-proofs')
+          finalPhotoUrl = uploadedUrls.join(', ')
         } catch (uploadErr) {
           console.warn('Upload foto bukti gagal, melanjutkan transaksi tanpa foto:', uploadErr)
           if (isPenitipan) {
@@ -396,12 +397,14 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
 
               <PhotoUpload 
                 label="Upload Foto Bukti Barang Dititipkan"
-                hint="Wajib upload foto barang yang dititipkan (otomatis dikompresi)"
-                value={proofPhotoFile}
-                previewUrl={proofPhotoPreview}
-                onChange={({ file, previewUrl }) => {
-                  setProofPhotoFile(file)
-                  setProofPhotoPreview(previewUrl)
+                hint="Bisa pilih hingga 5 foto (foto barang, kemasan, isi kardus). Otomatis dikompresi ~200KB."
+                isMultiple={true}
+                maxPhotos={5}
+                value={proofPhotoFiles}
+                previewUrl={proofPhotoPreviews}
+                onChange={({ files, previewUrls }) => {
+                  setProofPhotoFiles(files || [])
+                  setProofPhotoPreviews(previewUrls || [])
                 }}
                 required={true}
               />
@@ -412,7 +415,7 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
               <button 
                 className="btn-primary" 
                 onClick={nextStep}
-                disabled={!depositItemName.trim() || !depositItemDescription.trim() || !proofPhotoFile}
+                disabled={!depositItemName.trim() || !depositItemDescription.trim() || proofPhotoFiles.length === 0}
               >
                 Lanjut ke Konfirmasi →
               </button>
@@ -438,12 +441,14 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
             <div style={{ marginTop: 'var(--space-6)' }}>
               <PhotoUpload 
                 label="Upload Foto Bukti Serah Terima / Pengambilan (Opsional)"
-                hint="Foto bukti barang sudah diserahkan kembali kepada pemiliknya"
-                value={proofPhotoFile}
-                previewUrl={proofPhotoPreview}
-                onChange={({ file, previewUrl }) => {
-                  setProofPhotoFile(file)
-                  setProofPhotoPreview(previewUrl)
+                hint="Bisa upload hingga 5 foto bukti serah terima kembali"
+                isMultiple={true}
+                maxPhotos={5}
+                value={proofPhotoFiles}
+                previewUrl={proofPhotoPreviews}
+                onChange={({ files, previewUrls }) => {
+                  setProofPhotoFiles(files || [])
+                  setProofPhotoPreviews(previewUrls || [])
                 }}
               />
             </div>
@@ -503,29 +508,36 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
                 <div style={{ marginTop: 'var(--space-6)' }}>
                   <PhotoUpload 
                     label="Upload Foto Bukti Transaksi (Opsional)"
-                    hint="Foto bukti serah terima barang (opsional)"
-                    value={proofPhotoFile}
-                    previewUrl={proofPhotoPreview}
-                    onChange={({ file, previewUrl }) => {
-                      setProofPhotoFile(file)
-                      setProofPhotoPreview(previewUrl)
+                    hint="Foto bukti serah terima barang (bisa hingga 5 foto)"
+                    isMultiple={true}
+                    maxPhotos={5}
+                    value={proofPhotoFiles}
+                    previewUrl={proofPhotoPreviews}
+                    onChange={({ files, previewUrls }) => {
+                      setProofPhotoFiles(files || [])
+                      setProofPhotoPreviews(previewUrls || [])
                     }}
                   />
                 </div>
               </div>
             )}
 
-            {/* Pratinjau Foto Bukti untuk Penitipan / Pengambilan */}
-            {proofPhotoPreview && (
+            {/* Pratinjau Multi-Foto Bukti */}
+            {proofPhotoPreviews.length > 0 && (
               <div style={{ marginTop: 'var(--space-4)' }}>
                 <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'block', marginBottom: 'var(--space-2)' }}>
-                  Foto Bukti Transaksi:
+                  Foto Bukti Transaksi ({proofPhotoPreviews.length} foto):
                 </label>
-                <img 
-                  src={proofPhotoPreview} 
-                  alt="Bukti Transaksi" 
-                  style={{ width: '100%', maxHeight: '240px', objectFit: 'contain', borderRadius: 'var(--radius-md)', background: 'var(--bg-base)', border: '1px solid var(--bg-border)' }} 
-                />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 'var(--space-3)' }}>
+                  {proofPhotoPreviews.map((url, idx) => (
+                    <img 
+                      key={idx}
+                      src={url} 
+                      alt={`Bukti Transaksi ${idx + 1}`} 
+                      style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 'var(--radius-md)', background: 'var(--bg-base)', border: '1px solid var(--bg-border)' }} 
+                    />
+                  ))}
+                </div>
               </div>
             )}
 

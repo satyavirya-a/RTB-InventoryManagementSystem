@@ -491,3 +491,194 @@ a {
 .skeleton--text-lg { height: 16px; width: 80%; }
 .skeleton--badge   { height: 24px; width: 60%; border-radius: var(--radius-full); }
 .skeleton--btn     { height: 36px; width: 100%; border-radius: var(--radius-md); }
+
+/* --- Catalog Header Actions & Sync Button --- */
+.catalog-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.btn-sync-spreadsheet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: hsla(168, 76%, 42%, 0.12);
+  border: 1px solid hsla(168, 76%, 42%, 0.35);
+  color: hsl(168, 76%, 55%);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-sync-spreadsheet:hover:not(:disabled) {
+  background: hsl(168, 76%, 38%);
+  color: #ffffff;
+  border-color: hsl(168, 76%, 38%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsla(168, 76%, 42%, 0.25);
+}
+
+.btn-sync-spreadsheet:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Modern Quantity Stepper & Compact Segmented Control
+   ========================================================================== */
+
+/* Hilangkan browser default number spin arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* --- Quantity Stepper --- */
+.quantity-stepper {
+  display: flex;
+  align-items: center;
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  height: 42px;
+  width: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.quantity-stepper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px hsla(217, 91%, 60%, 0.2);
+}
+
+.stepper-btn {
+  width: 38px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface-hover);
+  border: none;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.stepper-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.stepper-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.stepper-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.stepper-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+  font-family: inherit;
+  padding: 0 var(--space-1);
+}
+
+.stepper-input:focus {
+  outline: none;
+}
+
+/* --- Compact Stock + Unit 2-Column Grid --- */
+.compact-stock-unit-grid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: var(--space-3);
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 380px) {
+  .compact-stock-unit-grid {
+    grid-template-columns: 125px 1fr;
+    gap: var(--space-2);
+  }
+}
+
+/* --- Compact Quick Units --- */
+.compact-quick-units {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin-top: -6px;
+}
+
+.compact-quick-units-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-right: var(--space-1);
+}
+
+/* --- Compact Segmented Control (iOS/macOS style) --- */
+.compact-segmented-control {
+  display: flex;
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+  height: 44px;
+  width: 100%;
+}
+
+.compact-segment-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.compact-segment-tab:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+.compact-segment-tab--active {
+  background: var(--color-primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px hsla(217, 91%, 60%, 0.35);
+}
+
+

@@ -76,3 +76,50 @@ export async function syncTransactionToGoogle({
     return { success: false, message: error.message }
   }
 }
+
+/**
+ * Menyinkronkan seluruh master inventaris (daftar barang & stok) ke sheet "Rekap Stok Barang" di Google Spreadsheet.
+ *
+ * @param {Array<object>} items - Array seluruh objek barang dari database
+ * @returns {Promise<{ success: boolean, message?: string }>}
+ */
+export async function syncAllItemsToGoogle(items) {
+  const scriptUrl = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL
+
+  if (!scriptUrl || scriptUrl.trim() === '' || scriptUrl.includes('your-deployment-id')) {
+    console.warn('[GoogleSync] ⚠️ VITE_GOOGLE_APPS_SCRIPT_URL belum dikonfigurasi di .env.local.')
+    return { success: false, message: 'VITE_GOOGLE_APPS_SCRIPT_URL belum dikonfigurasi di .env.local' }
+  }
+
+  const payloadData = {
+    action: 'sync_inventory_catalog',
+    items: items
+  }
+
+  console.log('[GoogleSync] 📊 Menyinkronkan rekap seluruh master barang ke sheet "Rekap Stok Barang"...', {
+    totalItems: items.length
+  })
+
+  try {
+    fetch(scriptUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify(payloadData),
+      mode: 'no-cors'
+    })
+      .then(() => {
+        console.log('[GoogleSync] ✅ Rekap seluruh barang berhasil dikirim ke Google Spreadsheet!')
+      })
+      .catch(err => {
+        console.warn('[GoogleSync] ❌ Gagal mengirim rekap barang ke Google Spreadsheet:', err)
+      })
+
+    return { success: true }
+  } catch (error) {
+    console.warn('[GoogleSync] Error saat sync rekap barang:', error)
+    return { success: false, message: error.message }
+  }
+}
+

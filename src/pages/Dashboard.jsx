@@ -6,7 +6,15 @@ import './Dashboard.css'
 
 function Dashboard({ onNavigate }) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [historySearchQuery, setHistorySearchQuery] = useState('')
+  const [historyFilterType, setHistoryFilterType] = useState('all')
   const [activeTab, setActiveTab] = useState('catalog') // 'catalog' | 'deposits'
+
+  const handleOpenHistory = (searchQuery = '', filter = 'all') => {
+    setHistorySearchQuery(searchQuery)
+    setHistoryFilterType(filter)
+    setIsHistoryOpen(true)
+  }
 
   return (
     <div className="dashboard">
@@ -21,7 +29,7 @@ function Dashboard({ onNavigate }) {
           <button 
             type="button" 
             className="btn-history-trigger"
-            onClick={() => setIsHistoryOpen(true)}
+            onClick={() => handleOpenHistory('', 'all')}
             aria-label="Lihat riwayat transaksi"
           >
             <span className="history-icon">📜</span>
@@ -77,31 +85,53 @@ function Dashboard({ onNavigate }) {
         </button>
       </div>
 
-      {/* Segmented Tab Switcher (Katalog vs Barang Titipan) */}
-      <div className="dashboard__tab-switcher">
-        <button
-          type="button"
-          className={`dashboard-tab ${activeTab === 'catalog' ? 'dashboard-tab--active' : ''}`}
-          onClick={() => setActiveTab('catalog')}
-        >
-          <span>📦</span>
-          <span>Katalog Barang Gudang</span>
-        </button>
+      {/* Selector Tampilan: Tab di Desktop, Dropdown di Mobile */}
+      <div className="dashboard__tab-container">
+        {/* Versi Tab (Desktop/Tablet) */}
+        <div className="dashboard__tab-switcher">
+          <button
+            type="button"
+            className={`dashboard-tab ${activeTab === 'catalog' ? 'dashboard-tab--active' : ''}`}
+            onClick={() => setActiveTab('catalog')}
+          >
+            <span>📦</span>
+            <span>Katalog Barang Gudang</span>
+          </button>
 
-        <button
-          type="button"
-          className={`dashboard-tab ${activeTab === 'deposits' ? 'dashboard-tab--active' : ''}`}
-          onClick={() => setActiveTab('deposits')}
-        >
-          <span>🎒</span>
-          <span>Barang Titipan Aktif</span>
-        </button>
+          <button
+            type="button"
+            className={`dashboard-tab ${activeTab === 'deposits' ? 'dashboard-tab--active' : ''}`}
+            onClick={() => setActiveTab('deposits')}
+          >
+            <span>🎒</span>
+            <span>Barang Titipan Aktif</span>
+          </button>
+        </div>
+
+        {/* Versi Dropdown Pilihan (Mobile) */}
+        <div className="dashboard__tab-dropdown-wrapper">
+          <label htmlFor="dashboard-view-select" className="dashboard__tab-dropdown-label">
+            Tampilkan Tampilan:
+          </label>
+          <div className="dashboard__select-wrapper">
+            <select
+              id="dashboard-view-select"
+              className="dashboard__tab-dropdown"
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+            >
+              <option value="catalog">📦 Katalog Barang Gudang</option>
+              <option value="deposits">🎒 Barang Titipan Aktif</option>
+            </select>
+            <span className="dashboard__select-chevron" aria-hidden="true">▼</span>
+          </div>
+        </div>
       </div>
 
       {/* Konten Tab Aktif */}
       <div className="dashboard__content-section">
         {activeTab === 'catalog' ? (
-          <CatalogPage />
+          <CatalogPage onOpenHistory={handleOpenHistory} />
         ) : (
           <DepositedItemsList 
             onPickupItem={(depositItem) => onNavigate('wizard_pengambilan', depositItem)}
@@ -113,6 +143,8 @@ function Dashboard({ onNavigate }) {
       <HistoryModal 
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
+        initialSearchQuery={historySearchQuery}
+        initialFilter={historyFilterType}
       />
     </div>
   )

@@ -20,12 +20,42 @@ import { useItems } from '../hooks/useItems'
 import ItemCard from '../components/ItemCard'
 import ItemDetailModal from '../components/ItemDetailModal'
 import AddItemModal from '../components/AddItemModal'
+import { supabase } from '../lib/supabaseClient'
+import { syncAllItemsToGoogle } from '../lib/googleSyncService'
 import '../components/ItemCard.css'
 
-function CatalogPage({ onItemClick }) {
+function CatalogPage({ onItemClick, onOpenHistory }) {
   const { items, isLoading, error, searchQuery, setSearchQuery, totalItems, refetch } = useItems()
   const [selectedItem, setSelectedItem] = useState(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  // Handler sinkronisasi seluruh stok barang ke Google Spreadsheet
+  const handleSyncToSpreadsheet = async () => {
+    setIsSyncing(true)
+    try {
+      // Ambil seluruh master data barang dari Supabase (termasuk status archived untuk rekap lengkap)
+      const { data, error: fetchErr } = await supabase
+        .from('items')
+        .select('*')
+        .order('created_at', { ascending: true })
+
+      if (fetchErr) throw fetchErr
+
+      if (!data || data.length === 0) {
+        alert('Tidak ada barang inventaris untuk disinkronkan.')
+        return
+      }
+
+      await syncAllItemsToGoogle(data)
+      alert(`Rekap seluruh barang (${data.length} item) berhasil dikirim ke sheet "Rekap Stok Barang" di Google Spreadsheet Anda!`)
+    } catch (err) {
+      console.error('Gagal sinkronisasi ke Spreadsheet:', err)
+      alert('Gagal menyinkronkan ke Spreadsheet: ' + (err.message || 'Periksa koneksi/URL'))
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   // Apakah halaman ini sedang disematkan di dalam Wizard transaksi?
   const isEmbedded = Boolean(onItemClick)
@@ -47,15 +77,29 @@ function CatalogPage({ onItemClick }) {
               )}
             </div>
 
-            {/* Tombol Tambah Barang untuk PIC Gudang */}
-            <button 
-              type="button"
-              className="btn-add-item-trigger"
-              onClick={() => setIsAddModalOpen(true)}
-              aria-label="Tambah barang baru ke inventaris"
-            >
-              <span className="btn-add-icon">+</span> Tambah Barang
-            </button>
+            <div className="catalog-header__actions">
+              {/* Tombol Sinkronkan Rekap ke Google Spreadsheet */}
+              <button
+                type="button"
+                className="btn-sync-spreadsheet"
+                onClick={handleSyncToSpreadsheet}
+                disabled={isSyncing || isLoading}
+                title="Sinkronkan master data seluruh barang ke sheet 'Rekap Stok Barang' di Google Spreadsheet"
+              >
+                <span>{isSyncing ? '⏳' : '📊'}</span>
+                <span>{isSyncing ? 'Menyinkronkan...' : 'Sync Rekap Sheet'}</span>
+              </button>
+
+              {/* Tombol Tambah Barang untuk PIC Gudang */}
+              <button 
+                type="button" 
+                className="btn-add-item-trigger"
+                onClick={() => setIsAddModalOpen(true)}
+                aria-label="Tambah barang baru ke inventaris"
+              >
+                <span className="btn-add-icon">+</span> Tambah Barang
+              </button>
+            </div>
           </div>
         )}
 
@@ -165,13 +209,17 @@ function CatalogPage({ onItemClick }) {
       )}
 
       {/* Render modal detail jika ada barang yang dipilih (dan bukan dalam mode onItemClick) */}
-      {!onItemClick && (
+      {!onItemClick && selectedItem && (
         <ItemDetailModal
           item={selectedItem}
           onClose={() => setSelectedItem(null)}
           onItemDeleted={() => {
             refetch()
           }}
+          onItemUpdated={() => {
+            refetch()
+          }}
+          onOpenHistory={onOpenHistory}
         />
       )}
 

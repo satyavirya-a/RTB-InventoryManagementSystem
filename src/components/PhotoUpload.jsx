@@ -1,17 +1,19 @@
 /**
  * PhotoUpload.jsx — Komponen upload foto dengan kompresi otomatis di sisi klien.
  *
- * Alur kerja komponen:
- * 1. User memilih file gambar (via klik tombol atau drag-and-drop).
- * 2. Menampilkan indikator loading "Mengompresi gambar...".
- * 3. Memanggil compressImageFile() di background thread (Web Worker).
- * 4. Menampilkan pratinjau (preview) foto dan badge penghematan ukuran file.
- * 5. Mengirimkan objek file terkompresi ke komponen induk melalui callback onChange.
+ * Fitur:
+ * 1. Mendukung Single Photo & Multi-Photo (hingga maxPhotos foto).
+ * 2. Kompresi otomatis Web Worker di background thread (~200KB per foto).
+ * 3. Drag & drop multi-file.
+ * 4. Grid pratinjau mini dengan tombol hapus (🗑️) per foto.
+ * 5. Badge penghematan ukuran file.
  *
  * @param {object} props
- * @param {File|null} props.value - File terkompresi saat ini
- * @param {string|null} props.previewUrl - URL pratinjau foto
- * @param {Function} props.onChange - Callback saat foto dipilih/dihapus: ({ file, previewUrl }) => void
+ * @param {File|Array<File>|null} [props.value] - File tunggal atau array file terkompresi
+ * @param {string|Array<string>|null} [props.previewUrl] - URL pratinjau tunggal atau array URL
+ * @param {Function} props.onChange - Callback: ({ file, files, previewUrl, previewUrls }) => void
+ * @param {boolean} [props.isMultiple=false] - Aktifkan mode multi-foto
+ * @param {number} [props.maxPhotos=5] - Batas maksimum jumlah foto
  * @param {string} [props.label='Upload Foto'] - Label judul input
  * @param {string} [props.hint='Format: JPG, PNG, WebP (Otomatis dikompresi)'] - Petunjuk input
  * @param {boolean} [props.required=false] - Apakah wajib diisi
@@ -25,67 +27,98 @@ function PhotoUpload({
   value,
   previewUrl,
   onChange,
+  isMultiple = false,
+  maxPhotos = 5,
   label = 'Upload Foto',
   hint = 'Format: JPG, PNG, WebP (Otomatis dikompresi)',
   required = false,
   disabled = false
 }) {
   const [isCompressing, setIsCompressing] = useState(false)
-  const [compressionInfo, setCompressionInfo] = useState(null)
+  const [compressingText, setCompressingText] = useState('')
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef(null)
 
+  // Normalisasi data: array untuk multi-foto, single untuk single-foto
+  const currentPreviews = isMultiple 
+    ? (Array.isArray(previewUrl) ? previewUrl : (previewUrl ? [previewUrl] : []))
+    : (previewUrl ? [previewUrl] : [])
+
+  const currentFiles = isMultiple
+    ? (Array.isArray(value) ? value : (value ? [value] : []))
+    : (value ? [value] : [])
+
   /**
-   * Menangani pemrosesan file gambar (baik dari file input maupun drag-drop).
+   * Memproses satu atau beberapa file gambar sekaligus secara paralel.
    *
-   * @param {File} file - File mentah dari browser
+   * @param {FileList|Array<File>} fileList
    */
-  const processFile = async (file) => {
-    if (!file || !file.type.startsWith('image/')) {
+  const processFiles = async (fileList) => {
+    const rawFiles = Array.from(fileList || []).filter(f => f && f.type.startsWith('image/'))
+    
+    if (rawFiles.length === 0) {
       alert('Harap pilih file gambar yang valid (JPG, PNG, atau WebP).')
       return
     }
 
+    if (isMultiple && currentFiles.length + rawFiles.length > maxPhotos) {
+      alert(`Maksimal ${maxPhotos} foto yang dapat diunggah dalam satu transaksi.`)
+      return
+    }
+
     setIsCompressing(true)
+    setCompressingText(`Mengompresi ${rawFiles.length} gambar di background...`)
+
     try {
-      // 1. Jalankan kompresi otomatis di background
-      const result = await compressImageFile(file)
-      
-      // 2. Buat blob URL untuk pratinjau lokal
-      const newPreviewUrl = URL.createObjectURL(result.compressedFile)
+      // Kompresi seluruh file secara paralel
+      const compressionPromises = rawFiles.map(file => compressImageFile(file))
+      const results = await Promise.all(compressionPromises)
 
-      // 3. Hitung persentase penghematan ukuran
-      const savedPercent = result.originalSizeKB > 0
-        ? Math.round(((result.originalSizeKB - result.compressedSizeKB) / result.originalSizeKB) * 100)
-        : 0
+      if (isMultiple) {
+        const newFiles = results.map(r => r.compressedFile)
+        const newPreviews = results.map(r => URL.createObjectURL(r.compressedFile))
 
-      setCompressionInfo({
-        originalKB: result.originalSizeKB,
-        compressedKB: result.compressedSizeKB,
-        savedPercent: Math.max(0, savedPercent)
-      })
+        const updatedFiles = [...currentFiles, ...newFiles]
+        const updatedPreviews = [...currentPreviews, ...newPreviews]
 
-      // 4. Laporkan ke parent component
-      if (onChange) {
-        onChange({
-          file: result.compressedFile,
-          previewUrl: newPreviewUrl,
-          originalSizeKB: result.originalSizeKB,
-          compressedSizeKB: result.compressedSizeKB
-        })
+        if (onChange) {
+          onChange({
+            files: updatedFiles,
+            previewUrls: updatedPreviews,
+            // Fallback properti untuk kemudahan akses
+            file: updatedFiles[0] || null,
+            previewUrl: updatedPreviews[0] || null
+          })
+        }
+      } else {
+        // Mode single foto
+        const singleResult = results[0]
+        const singlePreview = URL.createObjectURL(singleResult.compressedFile)
+
+        if (onChange) {
+          onChange({
+            file: singleResult.compressedFile,
+            files: [singleResult.compressedFile],
+            previewUrl: singlePreview,
+            previewUrls: [singlePreview],
+            originalSizeKB: singleResult.originalSizeKB,
+            compressedSizeKB: singleResult.compressedSizeKB
+          })
+        }
       }
     } catch (err) {
-      console.error('Gagal memproses gambar:', err)
+      console.error('Gagal mengompresi gambar:', err)
       alert('Terjadi kesalahan saat memproses gambar. Silakan coba lagi.')
     } finally {
       setIsCompressing(false)
+      setCompressingText('')
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      processFile(file)
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(e.target.files)
     }
   }
 
@@ -103,93 +136,148 @@ function PhotoUpload({
     setIsDragOver(false)
     if (disabled) return
 
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      processFile(file)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files)
     }
   }
 
-  const handleClear = (e) => {
+  // Hapus foto spesifik berdasarkan indeks
+  const handleRemovePhoto = (indexToRemove, e) => {
     e.stopPropagation()
-    setCompressionInfo(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-    if (onChange) {
-      onChange({ file: null, previewUrl: null, originalSizeKB: 0, compressedSizeKB: 0 })
+    
+    if (isMultiple) {
+      const updatedFiles = currentFiles.filter((_, idx) => idx !== indexToRemove)
+      const updatedPreviews = currentPreviews.filter((_, idx) => idx !== indexToRemove)
+
+      if (onChange) {
+        onChange({
+          files: updatedFiles,
+          previewUrls: updatedPreviews,
+          file: updatedFiles[0] || null,
+          previewUrl: updatedPreviews[0] || null
+        })
+      }
+    } else {
+      if (onChange) {
+        onChange({ file: null, files: [], previewUrl: null, previewUrls: [] })
+      }
     }
   }
 
   return (
     <div className="photo-upload-group">
-      <label className="photo-upload-label">
-        {label} {required && <span className="photo-upload-required">*</span>}
-      </label>
-
-      {/* Area Upload & Dropzone */}
-      <div
-        className={`photo-dropzone ${isDragOver ? 'photo-dropzone--dragover' : ''} ${previewUrl ? 'photo-dropzone--has-preview' : ''} ${disabled ? 'photo-dropzone--disabled' : ''}`}
-        onClick={() => !disabled && !isCompressing && fileInputRef.current?.click()}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        role="button"
-        tabIndex={0}
-        aria-label="Pilih foto untuk diunggah"
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/jpg"
-          className="photo-input-hidden"
-          onChange={handleFileChange}
-          disabled={disabled || isCompressing}
-        />
-
-        {/* State 1: Sedang Kompresi */}
-        {isCompressing && (
-          <div className="photo-upload-status photo-upload-status--loading">
-            <span className="photo-upload-spinner" aria-hidden="true" />
-            <p>Mengompresi gambar di background...</p>
-          </div>
-        )}
-
-        {/* State 2: Ada Pratinjau Foto */}
-        {!isCompressing && previewUrl && (
-          <div className="photo-preview-wrapper">
-            <img src={previewUrl} alt="Pratinjau Bukti" className="photo-preview-image" />
-            <button
-              type="button"
-              className="photo-preview-remove-btn"
-              onClick={handleClear}
-              title="Hapus foto"
-              aria-label="Hapus foto"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* State 3: Belum Ada Foto */}
-        {!isCompressing && !previewUrl && (
-          <div className="photo-upload-placeholder">
-            <span className="photo-upload-icon" aria-hidden="true">📸</span>
-            <p className="photo-upload-prompt">
-              <strong>Klik untuk pilih foto</strong> atau seret file ke sini
-            </p>
-            <span className="photo-upload-hint">{hint}</span>
-          </div>
+      <div className="photo-upload-header">
+        <label className="photo-upload-label">
+          {label} {required && <span className="photo-upload-required">*</span>}
+        </label>
+        {isMultiple && (
+          <span className="photo-upload-count">
+            {currentPreviews.length} / {maxPhotos} foto
+          </span>
         )}
       </div>
 
-      {/* Info Kompresi Ukuran File */}
-      {compressionInfo && previewUrl && (
-        <div className="photo-compression-badge">
-          <span className="photo-compression-icon">⚡</span>
-          <span>
-            Ukuran: <strong>{compressionInfo.originalKB} KB</strong> ➔ <strong>{compressionInfo.compressedKB} KB</strong>
-            {compressionInfo.savedPercent > 0 && ` (Hemat ${compressionInfo.savedPercent}%)`}
-          </span>
+      {/* Grid Multi-Foto Preview (Jika mode multiple dan ada foto) */}
+      {isMultiple && currentPreviews.length > 0 && (
+        <div className="photo-preview-grid">
+          {currentPreviews.map((url, idx) => (
+            <div key={idx} className="photo-preview-card">
+              <img src={url} alt={`Bukti ${idx + 1}`} className="photo-preview-card__img" />
+              <button
+                type="button"
+                className="photo-preview-card__remove"
+                onClick={(e) => handleRemovePhoto(idx, e)}
+                title="Hapus foto ini"
+                aria-label={`Hapus foto ${idx + 1}`}
+              >
+                ✕
+              </button>
+              <span className="photo-preview-card__badge">Foto #{idx + 1}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Single Foto Preview (Jika mode single dan ada foto) */}
+      {!isMultiple && currentPreviews.length > 0 && (
+        <div className="photo-single-preview">
+          <div className="photo-single-preview__container">
+            <img src={currentPreviews[0]} alt="Pratinjau Foto" className="photo-single-preview__img" />
+            <div className="photo-single-preview__actions">
+              <button
+                type="button"
+                className="btn-photo-replace"
+                onClick={() => !disabled && !isCompressing && fileInputRef.current?.click()}
+                disabled={disabled || isCompressing}
+              >
+                📸 Ganti Foto
+              </button>
+              <button
+                type="button"
+                className="btn-photo-remove"
+                onClick={(e) => handleRemovePhoto(0, e)}
+                disabled={disabled || isCompressing}
+              >
+                🗑️ Hapus
+              </button>
+            </div>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/jpg"
+            className="photo-input-hidden"
+            onChange={handleFileChange}
+            disabled={disabled || isCompressing}
+          />
+        </div>
+      )}
+
+      {/* Dropzone untuk memilih / menambah foto (hanya tampil jika belum ada foto atau mode multiple) */}
+      {(isMultiple ? currentPreviews.length < maxPhotos : currentPreviews.length === 0) && (
+        <div
+          className={`photo-dropzone ${isDragOver ? 'photo-dropzone--dragover' : ''} ${disabled ? 'photo-dropzone--disabled' : ''} ${currentPreviews.length > 0 ? 'photo-dropzone--compact' : ''}`}
+          onClick={() => !disabled && !isCompressing && fileInputRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          role="button"
+          tabIndex={0}
+          aria-label="Pilih foto untuk diunggah"
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/jpg"
+            multiple={isMultiple}
+            className="photo-input-hidden"
+            onChange={handleFileChange}
+            disabled={disabled || isCompressing}
+          />
+
+          {/* State Loading */}
+          {isCompressing && (
+            <div className="photo-upload-status photo-upload-status--loading">
+              <span className="photo-upload-spinner" aria-hidden="true" />
+              <p>{compressingText || 'Mengompresi gambar...'}</p>
+            </div>
+          )}
+
+          {/* State Siap Pilih Foto */}
+          {!isCompressing && (
+            <div className="photo-upload-placeholder">
+              <span className="photo-upload-icon" aria-hidden="true">
+                {currentPreviews.length > 0 ? '➕' : '📸'}
+              </span>
+              <p className="photo-upload-prompt">
+                <strong>{currentPreviews.length > 0 ? 'Tambah Foto Lain' : 'Klik untuk pilih foto'}</strong>
+                {currentPreviews.length === 0 && ' atau seret file ke sini'}
+              </p>
+              <span className="photo-upload-hint">
+                {isMultiple ? `Bisa pilih hingga ${maxPhotos} foto sekaligus (otomatis dikompresi ~200KB)` : hint}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

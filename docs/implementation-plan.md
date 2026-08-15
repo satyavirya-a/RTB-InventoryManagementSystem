@@ -33,10 +33,13 @@
 | Fase 4 — Cart System & FAB | ✅ Selesai | 2026-08-13 |
 | Fase 4.5 — Item Detail Modal | ✅ Selesai | 2026-08-13 |
 | Fase 5 — Logika Transaksi & UI Wizard | ✅ Selesai | 2026-08-14 |
-| Fase 6 — Kompresi Gambar & Input Data Barang | ✅ Selesai | 2026-08-15 |
+| Fase 6 — Kompresi Gambar, Multi-Upload & Subfolder Drive | ✅ Selesai | 2026-08-15 |
+| Fase 6.8 — Deep Linking Detail Peminjam ke Riwayat | ✅ Selesai | 2026-08-15 |
+| Fase 6.9 — Edit Data Barang, Foto Katalog & Koreksi Stok | ✅ Selesai | 2026-08-15 |
+| Fase 6.10 — Redesign Form Kompak & Dropdown Responsif | ✅ Selesai | 2026-08-15 |
 | Fase 7 — Autentikasi & RLS | ⬜ Belum dimulai | — |
 | Fase 8 — Testing & Polish UI | ⬜ Belum dimulai | — |
-| Fase 9 — Deployment | ⬜ Belum dimulai | — |
+| Fase 9 — Deployment ke Vercel | ⬜ Belum dimulai | — |
 
 **Legend:** ✅ Selesai · 🟡 Dalam proses · 🔴 Blocked · ⬜ Belum dimulai
 
@@ -677,9 +680,74 @@ git commit -m "feat: integrasi auto-backup transaksi ke Google Sheets & Google D
 
 ---
 
-## Fase 7 — Autentikasi & RLS
+## Fase 6.7 — Multi-Foto Upload & Subfolder Google Drive Auto-Backup ✅
 
-**Tujuan:** Batasi akses data — hanya user yang login yang bisa INSERT/UPDATE.
+**Tujuan:**
+1. Mendukung pengunggahan **lebih dari 1 foto (hingga 5 foto)** per transaksi (khususnya Penitipan barang yang memiliki banyak kardus/kemasan).
+2. Kompresi paralel di background Web Worker untuk semua foto yang dipilih.
+3. Otomatis membuat **Subfolder Khusus per Transaksi** di Google Drive (`YYYY-MM-DD_HHmm_JENIS_NAMA`) agar file tidak tercecer atau berantakan.
+4. Menyediakan tampilan mini galeri foto pada tab Barang Titipan dan modal Riwayat Transaksi dengan zoom foto.
+
+### File yang Dibuat & Dimodifikasi
+
+| # | File | Status | Keterangan |
+|---|---|---|---|
+| 1 | `src/lib/storageService.js` | ✅ | Fungsi `uploadMultipleImagesToStorage(files, bucket)` via `Promise.all` |
+| 2 | `src/components/PhotoUpload.jsx` | ✅ | Dukungan `isMultiple={true}`, drag-drop multi-file, preview grid & badge |
+| 3 | `src/components/PhotoUpload.css` | ✅ | Grid preview multi-foto dan tombol hapus individual |
+| 4 | `src/pages/TransactionWizard.jsx` | ✅ | Integrasi multi-foto pada alur penitipan, serah terima, dan preview konfirmasi |
+| 5 | `src/components/DepositedItemsList.jsx` | ✅ | Parsing URL multi-foto dan badge jumlah foto |
+| 6 | `src/components/HistoryModal.jsx` | ✅ | Galeri multi-foto pada detail transaksi |
+| 7 | `docs/google-apps-script.js` | ✅ | Pembuatan subfolder rapi per transaksi di Google Drive |
+
+## Fase 6.8 — Cross-Component Deep Linking (Detail Peminjam ➔ Riwayat) ✅
+
+**Tujuan:**
+1. Menghubungkan daftar nama panitia di bagian "Sedang Dibawa Oleh" pada modal detail barang langsung ke modal Riwayat Transaksi.
+2. Filter otomatis jenis transaksi `pemakaian` dan nama panitia terpilih agar PIC dapat memeriksa bukti serah terima foto dalam 1 klik.
+
+### File yang Dimodifikasi:
+- `src/components/HistoryModal.jsx` (menerima `initialSearchQuery` & `initialFilter`)
+- `src/pages/Dashboard.jsx` (mengelola state global filter riwayat)
+- `src/pages/CatalogPage.jsx` (meneruskan callback `onOpenHistory`)
+- `src/components/ItemDetailModal.jsx` & `ItemDetailModal.css` (item peminjam interaktif & clickable)
+
+---
+
+## Fase 6.9 — Fitur Edit Data Barang & Ganti Foto Katalog (PIC Gudang) ✅
+
+**Tujuan:**
+1. Memungkinkan PIC Gudang mengubah nama, deskripsi, satuan, sifat barang, **koreksi stok tersedia (Stock Opname)**, dan **mengganti foto barang** di katalog inventaris.
+2. Mengunggah foto baru terkompresi ke bucket `item-photos` di Supabase Storage (dengan fallback cerdas).
+3. Otomatis memperbarui data barang di database, mencatat audit log penyesuaian stok, me-refresh tampilan katalog secara instan, dan menyinkronkan data master ke Google Spreadsheet.
+
+### File yang Dibuat & Dimodifikasi:
+- `src/components/EditItemModal.jsx` & `EditItemModal.css` [NEW]: Modal form edit dengan pre-filled data, input koreksi stok, banner stok terpakai, kompresi foto, dan upload
+- `src/components/ItemDetailModal.jsx` & `ItemDetailModal.css` [MODIFY]: Integrasi tombol edit dan sinkronisasi state lokal `currentItem`
+- `src/components/PhotoUpload.jsx` & `PhotoUpload.css` [MODIFY]: Peningkatan antarmuka single-photo preview dengan aksi ganti/hapus foto
+- `src/lib/storageService.js` [MODIFY]: Fallback otomatis upload antar-bucket Supabase Storage
+- `src/pages/CatalogPage.jsx` [MODIFY]: Callback `onItemUpdated` memicu `refetch()` katalog
+
+---
+
+## Fase 6.10 — Redesign Form Kompak, Stepper Pro, & Dropdown Responsif Mobile ✅
+
+**Tujuan:**
+1. Menyempurnakan antarmuka modal **Tambah Barang Baru** dan **Edit Data Barang** agar proporsional, kompak, dan muat dalam satu layar tanpa *scroll trap*.
+2. Mengganti input angka browser dengan komponen **Quantity Stepper Pro (`−` [ angka ] `+`)** terkunci 140px berdampingan dengan kolom Satuan (`1fr`).
+3. Mengubah pilihan Sifat Barang menjadi **Segmented Control Tab Bar (44px)** bergaya iOS/macOS untuk menghemat ruang vertikal modal.
+4. Mengganti tombol tab switcher di Dashboard yang panjang dan terpotong di layar HP (< 640px) dengan **Dropdown View Selector** yang responsif dan elegan.
+
+### File yang Dimodifikasi:
+- `src/components/AddItemModal.jsx` & `AddItemModal.css` [MODIFY]: Tata letak 2 kolom kompak (stok + satuan), tab segmen 44px, dan border ambient glow
+- `src/components/EditItemModal.jsx` & `EditItemModal.css` [MODIFY]: Sinkronisasi desain form kompak dan border glow
+- `src/pages/Dashboard.jsx` & `Dashboard.css` [MODIFY]: Selector tampilan responsif (tab di desktop, dropdown di mobile)
+- `src/index.css` [MODIFY]: Token CSS untuk `.compact-stock-unit-grid`, `.quantity-stepper`, `.compact-segmented-control`, dan `.compact-quick-units`
+- `docs/catatan-belajar.md` [MODIFY]: Dokumentasi Bab 11 tentang Desain Form Kompak & Responsif
+
+---
+
+## Fase 7 — Autentikasi & RLS
 
 ### Yang Perlu Dilakukan di Supabase Dashboard (manual)
 

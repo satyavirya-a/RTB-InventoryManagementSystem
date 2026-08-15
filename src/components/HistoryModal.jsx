@@ -10,23 +10,33 @@
  * @param {object} props
  * @param {boolean} props.isOpen - Status apakah modal riwayat terbuka
  * @param {Function} props.onClose - Callback saat modal ditutup
+ * @param {string} [props.initialSearchQuery=''] - Query pencarian awal (misal: saat diklik dari detail barang)
+ * @param {string} [props.initialFilter='all'] - Filter jenis transaksi awal
  */
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import './HistoryModal.css'
 
-function HistoryModal({ isOpen, onClose }) {
+function HistoryModal({ isOpen, onClose, initialSearchQuery = '', initialFilter = 'all' }) {
   const [transactions, setTransactions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
-  const [filterType, setFilterType] = useState('all') // 'all', 'pemakaian', 'pengembalian', 'penitipan'
-  const [searchQuery, setSearchQuery] = useState('')
+  const [filterType, setFilterType] = useState(initialFilter)
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   
   // Transaksi yang sedang dipilih untuk melihat detail lengkap
   const [selectedTransaction, setSelectedTransaction] = useState(null)
   
   // Pratinjau foto bukti ukuran penuh
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState(null)
+
+  // Reset / sesuaikan query saat modal dibuka dengan prop baru
+  useEffect(() => {
+    if (isOpen) {
+      setSearchQuery(initialSearchQuery || '')
+      setFilterType(initialFilter || 'all')
+    }
+  }, [isOpen, initialSearchQuery, initialFilter])
 
   // Fetch riwayat transaksi dari Supabase
   const fetchHistory = async () => {
@@ -220,29 +230,45 @@ function HistoryModal({ isOpen, onClose }) {
             )}
 
             {/* Foto Bukti Transaksi */}
-            {selectedTransaction.proof_photo_url ? (
-              <div className="history-detail-photo-section">
-                <h4>Foto Bukti:</h4>
-                <div 
-                  className="history-photo-preview-box"
-                  onClick={() => setZoomPhotoUrl(selectedTransaction.proof_photo_url)}
-                  title="Klik untuk memperbesar foto"
-                >
-                  <img
-                    src={selectedTransaction.proof_photo_url}
-                    alt="Foto Bukti Transaksi"
-                    className="history-detail-photo"
-                  />
-                  <div className="history-photo-overlay">
-                    <span>🔍 Klik untuk Perbesar</span>
+            {(() => {
+              const photoUrls = (selectedTransaction.proof_photo_url || '')
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean)
+
+              if (photoUrls.length === 0) {
+                return (
+                  <div className="history-no-photo">
+                    <span>📷 Tidak ada foto bukti terlampir</span>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="history-detail-photo-section">
+                  <h4>Foto Bukti ({photoUrls.length} Foto):</h4>
+                  <div className="history-photo-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+                    {photoUrls.map((url, idx) => (
+                      <div 
+                        key={idx}
+                        className="history-photo-preview-box"
+                        onClick={() => setZoomPhotoUrl(url)}
+                        title="Klik untuk memperbesar foto"
+                      >
+                        <img
+                          src={url}
+                          alt={`Foto Bukti ${idx + 1}`}
+                          className="history-detail-photo"
+                        />
+                        <div className="history-photo-overlay">
+                          <span>🔍 Foto #{idx + 1}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="history-no-photo">
-                <span>📷 Tidak ada foto bukti terlampir</span>
-              </div>
-            )}
+              )
+            })()}
           </div>
         ) : (
           /* ========================================================================= */

@@ -9,16 +9,32 @@
  * @param {object} props.item - Data barang yang dipilih dari tabel items
  * @param {Function} props.onClose - Callback function untuk menutup modal
  * @param {Function} [props.onItemDeleted] - Callback saat barang berhasil dihapus dari katalog
+ * @param {Function} [props.onOpenHistory] - Callback untuk membuka modal riwayat transaksi terfilter
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import EditItemModal from './EditItemModal'
 import './ItemDetailModal.css'
 
-function ItemDetailModal({ item, onClose, onItemDeleted }) {
+function ItemDetailModal({ item, onClose, onItemDeleted, onItemUpdated, onOpenHistory }) {
+  // State data barang saat ini (bisa diperbarui saat diedit)
+  const [currentItem, setCurrentItem] = useState(item)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+
+  // Fallback data barang aktif
+  const activeItem = currentItem || item || {}
+
   // State untuk menyimpan daftar peminjam / pemakai aktif
   const [activeLoans, setActiveLoans] = useState([])
   const [isLoadingLoans, setIsLoadingLoans] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Sinkronisasi data saat prop item berubah
+  useEffect(() => {
+    if (item) {
+      setCurrentItem(item)
+    }
+  }, [item])
 
   // Mencegah background body scrolling saat modal pop-up sedang aktif
   useEffect(() => {
@@ -31,16 +47,16 @@ function ItemDetailModal({ item, onClose, onItemDeleted }) {
   // Menutup modal secara instan jika user menekan tombol 'Escape' di keyboard
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !isDeleting) onClose()
+      if (e.key === 'Escape' && !isDeleting && !isEditModalOpen) onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isDeleting, onClose])
+  }, [isDeleting, isEditModalOpen, onClose])
 
   // Mengambil data peminjam/pemakai aktif dari SQL View 'active_loans'
   useEffect(() => {
     async function fetchLoans() {
-      if (!item || item.stock_in_use === 0) return
+      if (!activeItem || !activeItem.id || activeItem.stock_in_use === 0) return
 
       setIsLoadingLoans(true)
       try {
@@ -48,7 +64,7 @@ function ItemDetailModal({ item, onClose, onItemDeleted }) {
         const { data, error } = await supabase
           .from('active_loans')
           .select('*')
-          .eq('item_id', item.id)
+          .eq('item_id', activeItem.id)
 
         if (error) throw error
         if (data) setActiveLoans(data)
@@ -59,7 +75,7 @@ function ItemDetailModal({ item, onClose, onItemDeleted }) {
       }
     }
     fetchLoans()
-  }, [item])
+  }, [activeItem.id, activeItem.stock_in_use])
 
   /**
    * Menangani aksi hapus barang dari katalog oleh PIC Gudang.
@@ -145,8 +161,8 @@ function ItemDetailModal({ item, onClose, onItemDeleted }) {
 
         {/* Gambar Barang */}
         <div className="item-modal__image-container">
-          {item.photo_url ? (
-            <img src={item.photo_url} alt={item.name} className="item-modal__image" />
+          {activeItem.photo_url ? (
+            <img src={activeItem.photo_url} alt={activeItem.name} className="item-modal__image" />
           ) : (
             <div className="item-modal__image-placeholder">📦</div>
           )}
@@ -155,44 +171,60 @@ function ItemDetailModal({ item, onClose, onItemDeleted }) {
         {/* Konten Detail */}
         <div className="item-modal__content">
           <div className="item-modal__header">
-            <h2 id="modal-title" className="item-modal__title">{item.name}</h2>
+            <h2 id="modal-title" className="item-modal__title">{activeItem.name}</h2>
           </div>
 
           {/* Info Stok Lengkap */}
           <div className="item-modal__stock-info">
             <div className="stock-box available">
               <span className="stock-box__label">Tersedia</span>
-              <span className="stock-box__value">{item.stock_available} {item.unit}</span>
+              <span className="stock-box__value">{activeItem.stock_available ?? 0} {activeItem.unit || 'pcs'}</span>
             </div>
-            {item.stock_in_use > 0 && (
+            {activeItem.stock_in_use > 0 && (
               <div className="stock-box in-use">
                 <span className="stock-box__label">Sedang Dipakai</span>
-                <span className="stock-box__value">{item.stock_in_use} {item.unit}</span>
+                <span className="stock-box__value">{activeItem.stock_in_use} {activeItem.unit || 'pcs'}</span>
               </div>
             )}
           </div>
 
           <p className="item-modal__description">
-            {item.description || 'Tidak ada deskripsi tersedia untuk barang ini.'}
+            {activeItem.description || 'Tidak ada deskripsi tersedia untuk barang ini.'}
           </p>
 
           {/* Daftar Pemakai / Peminjam Aktif */}
-          {item.stock_in_use > 0 && (
+          {activeItem.stock_in_use > 0 && (
             <div className="item-modal__borrowers">
-              <h4 className="item-modal__borrowers-title">Sedang Dibawa Oleh:</h4>
+              <div className="item-modal__borrowers-header">
+                <h4 className="item-modal__borrowers-title">Sedang Dibawa Oleh:</h4>
+                <span className="item-modal__borrowers-hint">Klik nama untuk lihat riwayat 🔍</span>
+              </div>
               {isLoadingLoans ? (
                 <p className="item-modal__borrowers-loading">Memuat data pemakai...</p>
               ) : activeLoans.length > 0 ? (
                 <ul className="item-modal__borrowers-list">
                   {activeLoans.map((loan, idx) => (
-                    <li key={idx}>
-                      <span>
-                        <strong>{loan.actor_name}</strong>
+                    <li 
+                      key={idx}
+                      className="item-modal__borrower-item"
+                      onClick={() => {
+                        onClose()
+                        if (onOpenHistory) {
+                          onOpenHistory(loan.actor_name, 'pemakaian')
+                        }
+                      }}
+                      title={`Klik untuk melihat riwayat transaksi ${loan.actor_name}`}
+                    >
+                      <div className="borrower-info">
+                        <strong>👤 {loan.actor_name}</strong>
                         {loan.event_name && <span className="item-modal__borrower-event"> ({loan.event_name})</span>}
-                      </span>
-                      <span>
-                        {loan.qty_borrowed ?? loan.unreturned_quantity ?? 0} {item.unit}
-                      </span>
+                      </div>
+                      <div className="borrower-right">
+                        <span className="borrower-qty">
+                          {loan.qty_borrowed ?? loan.unreturned_quantity ?? 0} {activeItem.unit || 'pcs'}
+                        </span>
+                        <span className="borrower-arrow">→</span>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -202,8 +234,19 @@ function ItemDetailModal({ item, onClose, onItemDeleted }) {
             </div>
           )}
 
-          {/* Aksi Hapus Barang untuk PIC Gudang */}
+          {/* Aksi PIC Gudang: Edit Data / Ganti Foto & Hapus Barang */}
           <div className="item-modal__footer-actions">
+            <button
+              type="button"
+              className="btn-edit-item"
+              onClick={() => setIsEditModalOpen(true)}
+              disabled={isDeleting}
+              aria-label="Edit data dan foto barang"
+            >
+              <span className="btn-edit-icon">✏️</span>
+              <span>Edit Data & Foto</span>
+            </button>
+
             <button
               type="button"
               className="btn-delete-item"
@@ -212,11 +255,24 @@ function ItemDetailModal({ item, onClose, onItemDeleted }) {
               aria-label="Hapus barang ini dari katalog"
             >
               <span className="btn-delete-icon">🗑️</span>
-              <span>{isDeleting ? 'Menghapus...' : 'Hapus Barang dari Katalog'}</span>
+              <span>{isDeleting ? 'Menghapus...' : 'Hapus'}</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Modal Form Edit Data & Ganti Foto */}
+      <EditItemModal
+        isOpen={isEditModalOpen}
+        item={activeItem}
+        onClose={() => setIsEditModalOpen(false)}
+        onItemUpdated={(updated) => {
+          setCurrentItem(updated)
+          if (onItemUpdated) {
+            onItemUpdated(updated)
+          }
+        }}
+      />
     </>
   )
 }

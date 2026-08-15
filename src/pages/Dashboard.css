@@ -157,11 +157,15 @@
   line-height: 1.35;
 }
 
-/* --- Segmented Tab Switcher --- */
+/* --- Tab Container (Desktop Tabs & Mobile Dropdown) --- */
+.dashboard__tab-container {
+  margin-bottom: var(--space-6);
+  width: 100%;
+}
+
 .dashboard__tab-switcher {
   display: inline-flex;
   gap: 4px;
-  margin-bottom: var(--space-6);
   background: var(--bg-surface);
   padding: 4px;
   border-radius: var(--radius-lg);
@@ -196,10 +200,68 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Dropdown Khusus Mobile */
+.dashboard__tab-dropdown-wrapper {
+  display: none;
+  width: 100%;
+}
+
+.dashboard__tab-dropdown-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.dashboard__select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.dashboard__tab-dropdown {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-surface);
+  border: 1.5px solid hsla(217, 91%, 60%, 0.4);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: var(--space-3) var(--space-10) var(--space-3) var(--space-4);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dashboard__tab-dropdown:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px hsla(217, 91%, 60%, 0.25);
+}
+
+.dashboard__tab-dropdown option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: var(--space-2);
+}
+
+.dashboard__select-chevron {
+  position: absolute;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+}
+
 /* --- Section Konten Aktif --- */
 .dashboard__content-section {
   border-top: 1px solid var(--bg-border);
-  padding-top: var(--space-8);
+  padding-top: var(--space-6);
 }
 
 /* Tablet & Mobile Responsiveness */
@@ -232,15 +294,11 @@
   }
 
   .dashboard__tab-switcher {
-    width: 100%;
-    display: flex;
+    display: none;
   }
 
-  .dashboard-tab {
-    flex: 1;
-    justify-content: center;
-    padding: var(--space-2) var(--space-3);
-    font-size: 0.85rem;
+  .dashboard__tab-dropdown-wrapper {
+    display: block;
   }
 }
 

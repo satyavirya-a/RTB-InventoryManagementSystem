@@ -26,6 +26,7 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
   const [description, setDescription] = useState('')
   const [stockAvailable, setStockAvailable] = useState(1)
   const [unit, setUnit] = useState('pcs')
+  const [isConsumable, setIsConsumable] = useState(true)
   
   // State Foto Barang
   const [photoFile, setPhotoFile] = useState(null)
@@ -68,6 +69,7 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
     setDescription('')
     setStockAvailable(1)
     setUnit('pcs')
+    setIsConsumable(true)
     setPhotoFile(null)
     setPhotoPreview(null)
     setErrorMsg('')
@@ -99,7 +101,7 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
           finalPhotoUrl = await uploadImageToStorage(photoFile, 'item-photos')
         } catch (uploadErr) {
           console.error('Upload foto katalog gagal:', uploadErr)
-          throw new Error(`Gagal mengunggah foto ke Supabase Storage: ${uploadErr.message || 'Periksa koneksi/bucket item-photos'}. Pastikan bucket 'item-photos' sudah dibuat dengan status Public di Supabase Dashboard.`)
+          throw new Error(`Gagal mengunggah foto ke Supabase Storage: ${uploadErr.message || 'Periksa koneksi/bucket item-photos'}.`)
         }
       }
 
@@ -114,6 +116,7 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
           stock_available: parseInt(stockAvailable, 10),
           stock_in_use: 0,
           unit: unit.trim() || 'pcs',
+          is_consumable: isConsumable,
           photo_url: finalPhotoUrl,
           status: 'active'
         })
@@ -228,29 +231,53 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
             />
           </div>
 
-          {/* Baris Stok & Satuan */}
-          <div className="add-item-modal__row">
-            <div className="form-group" style={{ flex: 1 }}>
+          {/* Baris 1: Stok Awal & Satuan (Gaya Kompak) */}
+          <div className="compact-stock-unit-grid">
+            <div className="form-group">
               <label htmlFor="item-stock">Stok Awal *</label>
-              <input
-                id="item-stock"
-                type="number"
-                min="1"
-                value={stockAvailable}
-                onChange={(e) => setStockAvailable(Math.max(1, parseInt(e.target.value) || 1))}
-                required
-                disabled={isSubmitting}
-              />
+              <div className="quantity-stepper">
+                <button
+                  type="button"
+                  className="stepper-btn stepper-btn--minus"
+                  onClick={() => setStockAvailable(prev => Math.max(1, prev - 1))}
+                  disabled={isSubmitting || stockAvailable <= 1}
+                  aria-label="Kurangi 1 stok"
+                >
+                  −
+                </button>
+                <input
+                  id="item-stock"
+                  type="number"
+                  min="1"
+                  className="stepper-input"
+                  value={stockAvailable}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10)
+                    setStockAvailable(isNaN(val) ? 1 : Math.max(1, val))
+                  }}
+                  required
+                  disabled={isSubmitting}
+                />
+                <button
+                  type="button"
+                  className="stepper-btn stepper-btn--plus"
+                  onClick={() => setStockAvailable(prev => prev + 1)}
+                  disabled={isSubmitting}
+                  aria-label="Tambah 1 stok"
+                >
+                  +
+                </button>
+              </div>
             </div>
 
-            <div className="form-group" style={{ flex: 1.2 }}>
+            <div className="form-group">
               <label htmlFor="item-unit">Satuan (Unit) *</label>
               <input
                 id="item-unit"
                 type="text"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
-                placeholder="Contoh: pcs, roll, unit"
+                placeholder="pcs, roll, unit"
                 required
                 disabled={isSubmitting}
               />
@@ -258,8 +285,8 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
           </div>
 
           {/* Pilihan Cepat Satuan */}
-          <div className="add-item-modal__quick-units">
-            <span className="quick-units-label">Pilihan cepat:</span>
+          <div className="compact-quick-units">
+            <span className="compact-quick-units-label">Pilihan cepat:</span>
             {QUICK_UNITS.map((u) => (
               <button
                 key={u}
@@ -271,6 +298,30 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
                 {u}
               </button>
             ))}
+          </div>
+
+          {/* Baris 2: Sifat Barang (Segmented Tab Bar Kompak) */}
+          <div className="form-group">
+            <label>Sifat / Karakteristik Barang *</label>
+            <div className="compact-segmented-control">
+              <button
+                type="button"
+                className={`compact-segment-tab ${isConsumable ? 'compact-segment-tab--active' : ''}`}
+                onClick={() => setIsConsumable(true)}
+                disabled={isSubmitting}
+              >
+                <span>📦 Habis Pakai</span>
+              </button>
+
+              <button
+                type="button"
+                className={`compact-segment-tab ${!isConsumable ? 'compact-segment-tab--active' : ''}`}
+                onClick={() => setIsConsumable(false)}
+                disabled={isSubmitting}
+              >
+                <span>🔄 Pinjam-Kembali</span>
+              </button>
+            </div>
           </div>
 
           {/* Upload Foto Barang */}

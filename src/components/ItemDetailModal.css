@@ -222,15 +222,31 @@
 .item-modal__borrowers {
   margin-top: var(--space-4);
   padding: var(--space-4);
-  background: hsla(280, 71%, 60%, 0.05);
-  border: 1px solid hsla(280, 71%, 60%, 0.2);
+  background: hsla(280, 71%, 60%, 0.06);
+  border: 1px solid hsla(280, 71%, 60%, 0.25);
   border-radius: var(--radius-md);
+}
+
+.item-modal__borrowers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-1);
 }
 
 .item-modal__borrowers-title {
   font-size: var(--font-size-sm);
+  font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: var(--space-2);
+  margin: 0;
+}
+
+.item-modal__borrowers-hint {
+  font-size: 0.72rem;
+  color: hsl(280, 71%, 70%);
+  font-weight: 500;
 }
 
 .item-modal__borrowers-loading {
@@ -246,18 +262,47 @@
   gap: var(--space-2);
 }
 
-.item-modal__borrowers-list li {
+.item-modal__borrower-item {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   background: var(--bg-base);
+  border: 1px solid var(--bg-border);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.item-modal__borrowers-list strong {
+.item-modal__borrower-item:hover {
+  background: hsla(280, 71%, 60%, 0.12);
+  border-color: hsla(280, 71%, 60%, 0.4);
+  transform: translateX(3px);
   color: var(--text-primary);
+}
+
+.borrower-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.borrower-qty {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.borrower-arrow {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.item-modal__borrower-item:hover .borrower-arrow {
+  transform: translateX(2px);
+  color: hsl(280, 71%, 75%);
 }
 
 .item-modal__borrowers-empty {
@@ -265,11 +310,44 @@
   color: var(--text-muted);
 }
 
-/* --- Footer Actions (Hapus Barang PIC) --- */
+/* --- Footer Actions (Edit & Hapus Barang PIC) --- */
 .item-modal__footer-actions {
   margin-top: var(--space-4);
   padding-top: var(--space-4);
   border-top: 1px solid var(--bg-border);
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--space-3);
+}
+
+.btn-edit-item {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: hsla(217, 91%, 60%, 0.12);
+  border: 1px solid hsla(217, 91%, 60%, 0.35);
+  color: hsl(217, 91%, 65%);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  transition: all var(--transition-fast);
+}
+
+.btn-edit-item:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsla(217, 91%, 60%, 0.25);
+}
+
+.btn-edit-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-delete-item {
@@ -302,6 +380,13 @@
   cursor: not-allowed;
 }
 
+.btn-edit-icon,
 .btn-delete-icon {
   font-size: 1rem;
+}
+
+@media (max-width: 480px) {
+  .item-modal__footer-actions {
+    grid-template-columns: 1fr;
+  }
 }
