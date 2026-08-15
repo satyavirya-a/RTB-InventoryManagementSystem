@@ -1,0 +1,184 @@
+/* ==========================================================================
+   PhotoUpload.css — Styling untuk komponen upload & kompresi foto
+   ========================================================================== */
+
+.photo-upload-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.photo-upload-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.photo-upload-required {
+  color: var(--color-danger);
+}
+
+/* --- Dropzone Container --- */
+.photo-dropzone {
+  position: relative;
+  background: var(--bg-surface);
+  border: 2px dashed var(--bg-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 160px;
+  overflow: hidden;
+  text-align: center;
+}
+
+.photo-dropzone:hover:not(.photo-dropzone--disabled) {
+  border-color: var(--color-primary);
+  background: var(--bg-surface-hover);
+}
+
+.photo-dropzone--dragover {
+  border-color: var(--color-primary);
+  background: hsla(217, 91%, 60%, 0.1);
+  transform: scale(1.01);
+}
+
+.photo-dropzone--has-preview {
+  padding: var(--space-2);
+  border-style: solid;
+  background: var(--bg-base);
+}
+
+.photo-dropzone--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sembunyikan input asli */
+.photo-input-hidden {
+  display: none;
+}
+
+/* --- Placeholder State --- */
+.photo-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.photo-upload-icon {
+  font-size: 2.25rem;
+  opacity: 0.8;
+}
+
+.photo-upload-prompt {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.photo-upload-prompt strong {
+  color: var(--color-primary);
+}
+
+.photo-upload-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* --- Loading / Compressing State --- */
+.photo-upload-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.photo-upload-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid hsla(217, 91%, 60%, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- Preview Area --- */
+.photo-preview-wrapper {
+  position: relative;
+  width: 100%;
+  max-height: 260px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+}
+
+.photo-preview-image {
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+
+.photo-preview-remove-btn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 28px;
+  height: 28px;
+  background: hsla(0, 0%, 0%, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  z-index: 10;
+}
+
+.photo-preview-remove-btn:hover {
+  background: var(--color-danger);
+  transform: scale(1.1);
+}
+
+/* --- Compression Savings Badge --- */
+.photo-compression-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: hsla(142, 71%, 45%, 0.12);
+  border: 1px solid hsla(142, 71%, 45%, 0.3);
+  color: hsl(142, 71%, 55%);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.photo-compression-icon {
+  font-size: 1rem;
+}
