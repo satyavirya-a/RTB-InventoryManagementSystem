@@ -1,0 +1,545 @@
+/* ==========================================================================
+   HistoryModal.css — Styling untuk modal riwayat transaksi
+   ========================================================================== */
+
+.history-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 94%;
+  max-width: 720px;
+  max-height: 88vh;
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.history-modal__header {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--bg-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+
+.history-modal__header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.history-modal__header h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.btn-history-back {
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-history-back:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.history-modal__close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.history-modal__close-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.history-modal__body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  flex: 1;
+}
+
+/* --- Filter Tabs & Search --- */
+.history-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.history-tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.history-tab {
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.history-tab:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.history-tab--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+  font-weight: 600;
+}
+
+.history-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.history-search__icon {
+  position: absolute;
+  left: var(--space-3);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.history-search__input {
+  width: 100%;
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4) var(--space-2) calc(var(--space-4) + 1.2rem);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color var(--transition-fast);
+}
+
+.history-search__input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.history-search__clear {
+  position: absolute;
+  right: var(--space-3);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+/* --- List Transaksi Cards --- */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.history-card {
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.history-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-surface-hover);
+}
+
+.history-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.history-card__time {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.history-card__actor {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.history-card__event {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.history-card__summary {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.history-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--bg-border);
+  font-size: 0.8rem;
+}
+
+.history-card__photo-indicator {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.history-card__arrow {
+  color: var(--text-secondary);
+  margin-left: auto;
+  font-weight: 500;
+}
+
+.history-card:hover .history-card__arrow {
+  color: var(--color-primary);
+}
+
+/* --- Badges --- */
+.history-type-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
+.history-type-badge--pemakaian {
+  background: hsla(217, 91%, 60%, 0.15);
+  color: hsl(217, 91%, 70%);
+  border: 1px solid hsla(217, 91%, 60%, 0.3);
+}
+
+.history-type-badge--pengembalian {
+  background: hsla(142, 71%, 45%, 0.15);
+  color: hsl(142, 71%, 55%);
+  border: 1px solid hsla(142, 71%, 45%, 0.3);
+}
+
+.history-type-badge--penitipan {
+  background: hsla(38, 92%, 50%, 0.15);
+  color: hsl(38, 92%, 60%);
+  border: 1px solid hsla(38, 92%, 50%, 0.3);
+}
+
+.history-type-badge--pengambilan {
+  background: hsla(260, 80%, 65%, 0.15);
+  color: hsl(260, 80%, 75%);
+  border: 1px solid hsla(260, 80%, 65%, 0.3);
+}
+
+.history-type-badge--penambahan {
+  background: hsla(168, 76%, 42%, 0.15);
+  color: hsl(168, 76%, 60%);
+  border: 1px solid hsla(168, 76%, 42%, 0.3);
+}
+
+.history-type-badge--penghapusan {
+  background: hsla(0, 84%, 60%, 0.15);
+  color: hsl(0, 84%, 65%);
+  border: 1px solid hsla(0, 84%, 60%, 0.3);
+}
+
+/* --- Detail View --- */
+.history-detail-body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.history-detail-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--bg-border);
+  padding-bottom: var(--space-4);
+}
+
+.history-detail-time {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.history-detail-card {
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.history-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.history-detail-row--notes {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.detail-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.detail-notes-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* Items in Detail */
+.history-detail-items h4,
+.history-detail-photo-section h4 {
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.history-detail-items-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.history-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-sm);
+}
+
+.history-item-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.history-item-qty {
+  color: var(--color-primary);
+}
+
+/* Photo Section */
+.history-photo-preview-box {
+  position: relative;
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  max-height: 300px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.history-detail-photo {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  transition: transform var(--transition-fast);
+}
+
+.history-photo-preview-box:hover .history-detail-photo {
+  transform: scale(1.02);
+}
+
+.history-photo-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  text-align: center;
+  padding: var(--space-2);
+  font-size: 0.8rem;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.history-photo-preview-box:hover .history-photo-overlay {
+  opacity: 1;
+}
+
+.history-no-photo {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  background: var(--bg-base);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--bg-border);
+}
+
+/* --- Zoom Overlay --- */
+.photo-zoom-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  cursor: zoom-out;
+}
+
+.photo-zoom-image {
+  max-width: 95%;
+  max-height: 95%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+}
+
+.photo-zoom-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+/* --- States --- */
+.history-loading,
+.history-empty,
+.history-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-10) var(--space-4);
+  gap: var(--space-3);
+}
+
+.history-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid hsla(217, 91%, 60%, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  animation: spin 0.8s linear infinite;
+}
+
+.history-empty-icon {
+  font-size: 2.5rem;
+}
+
+.history-empty-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.history-empty-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 300px;
+  margin: 0;
+}
+
+.btn-retry {
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  color: var(--text-primary);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+}
