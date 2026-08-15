@@ -19,11 +19,13 @@ import { useState } from 'react'
 import { useItems } from '../hooks/useItems'
 import ItemCard from '../components/ItemCard'
 import ItemDetailModal from '../components/ItemDetailModal'
+import AddItemModal from '../components/AddItemModal'
 import '../components/ItemCard.css'
 
 function CatalogPage({ onItemClick }) {
-  const { items, isLoading, error, searchQuery, setSearchQuery, totalItems } = useItems()
+  const { items, isLoading, error, searchQuery, setSearchQuery, totalItems, refetch } = useItems()
   const [selectedItem, setSelectedItem] = useState(null)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
   // Apakah halaman ini sedang disematkan di dalam Wizard transaksi?
   const isEmbedded = Boolean(onItemClick)
@@ -33,15 +35,27 @@ function CatalogPage({ onItemClick }) {
       {/* === Header Halaman === */}
       <div className="catalog-header">
         {!isEmbedded && (
-          <div className="catalog-header__title-group">
-            <h2 className="catalog-header__title">Katalog Barang</h2>
-            {!isLoading && (
-              <span className="catalog-header__count">
-                {searchQuery
-                  ? `${items.length} dari ${totalItems} barang`
-                  : `${totalItems} barang tersedia`}
-              </span>
-            )}
+          <div className="catalog-header__top">
+            <div className="catalog-header__title-group">
+              <h2 className="catalog-header__title">Katalog Barang</h2>
+              {!isLoading && (
+                <span className="catalog-header__count">
+                  {searchQuery
+                    ? `${items.length} dari ${totalItems} barang`
+                    : `${totalItems} barang tersedia`}
+                </span>
+              )}
+            </div>
+
+            {/* Tombol Tambah Barang untuk PIC Gudang */}
+            <button 
+              type="button"
+              className="btn-add-item-trigger"
+              onClick={() => setIsAddModalOpen(true)}
+              aria-label="Tambah barang baru ke inventaris"
+            >
+              <span className="btn-add-icon">+</span> Tambah Barang
+            </button>
           </div>
         )}
 
@@ -112,12 +126,19 @@ function CatalogPage({ onItemClick }) {
               ? 'Coba kata kunci lain atau hapus filter pencarian.'
               : 'Barang akan muncul di sini setelah ditambahkan ke gudang.'}
           </p>
-          {searchQuery && (
+          {searchQuery ? (
             <button
               className="catalog-state__action-btn"
               onClick={() => setSearchQuery('')}
             >
               Hapus Pencarian
+            </button>
+          ) : (
+            <button
+              className="catalog-state__action-btn"
+              onClick={() => setIsAddModalOpen(true)}
+            >
+              + Tambah Barang Pertama
             </button>
           )}
         </div>
@@ -143,11 +164,25 @@ function CatalogPage({ onItemClick }) {
         </div>
       )}
 
-      {/* Render modal jika ada barang yang dipilih (dan bukan dalam mode onItemClick) */}
+      {/* Render modal detail jika ada barang yang dipilih (dan bukan dalam mode onItemClick) */}
       {!onItemClick && (
         <ItemDetailModal
           item={selectedItem}
           onClose={() => setSelectedItem(null)}
+          onItemDeleted={() => {
+            refetch()
+          }}
+        />
+      )}
+
+      {/* Render modal tambah barang untuk PIC */}
+      {!isEmbedded && (
+        <AddItemModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onItemAdded={() => {
+            refetch()
+          }}
         />
       )}
     </div>

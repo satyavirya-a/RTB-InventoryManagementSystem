@@ -1,0 +1,163 @@
+/* ==========================================================================
+   AddItemModal.css — Styling untuk modal tambah barang baru (PIC)
+   ========================================================================== */
+
+.add-item-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 92%;
+  max-width: 560px;
+  max-height: 90vh;
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.add-item-modal__header {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--bg-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+
+.add-item-modal__header h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.add-item-modal__close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.add-item-modal__close-btn:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.add-item-modal__form {
+  padding: var(--space-6);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.add-item-modal__row {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+/* --- Quick Units --- */
+.add-item-modal__quick-units {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: -8px;
+}
+
+.quick-units-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.quick-unit-btn {
+  background: var(--bg-base);
+  border: 1px solid var(--bg-border);
+  color: var(--text-secondary);
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quick-unit-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.quick-unit-btn--active {
+  background: hsla(217, 91%, 60%, 0.15);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* --- Actions Footer --- */
+.add-item-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--bg-border);
+}
+
+/* Mobile Adjustments */
+@media (max-width: 600px) {
+  .add-item-modal {
+    width: 95%;
+    max-height: 94vh;
+  }
+
+  .add-item-modal__header {
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .add-item-modal__form {
+    padding: var(--space-4) var(--space-5);
+    gap: var(--space-4);
+  }
+
+  .add-item-modal__row {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .add-item-modal__actions {
+    flex-direction: column-reverse;
+  }
+
+  .add-item-modal__actions button {
+    width: 100%;
+    text-align: center;
+  }
+}

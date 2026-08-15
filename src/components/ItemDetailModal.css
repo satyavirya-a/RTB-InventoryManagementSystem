@@ -264,3 +264,44 @@
   font-size: var(--font-size-sm);
   color: var(--text-muted);
 }
+
+/* --- Footer Actions (Hapus Barang PIC) --- */
+.item-modal__footer-actions {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--bg-border);
+}
+
+.btn-delete-item {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: hsla(0, 84%, 60%, 0.1);
+  border: 1px solid hsla(0, 84%, 60%, 0.3);
+  color: hsl(0, 84%, 65%);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  transition: all var(--transition-fast);
+}
+
+.btn-delete-item:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: white;
+  border-color: var(--color-danger);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px hsla(0, 84%, 60%, 0.3);
+}
+
+.btn-delete-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-delete-icon {
+  font-size: 1rem;
+}
