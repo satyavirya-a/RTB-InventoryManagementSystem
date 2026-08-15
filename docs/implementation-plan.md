@@ -33,7 +33,7 @@
 | Fase 4 — Cart System & FAB | ✅ Selesai | 2026-08-13 |
 | Fase 4.5 — Item Detail Modal | ✅ Selesai | 2026-08-13 |
 | Fase 5 — Logika Transaksi & UI Wizard | ✅ Selesai | 2026-08-14 |
-| Fase 6 — Kompresi Gambar | ⬜ Belum dimulai | — |
+| Fase 6 — Kompresi Gambar & Input Data Barang | ✅ Selesai | 2026-08-15 |
 | Fase 7 — Autentikasi & RLS | ⬜ Belum dimulai | — |
 | Fase 8 — Testing & Polish UI | ⬜ Belum dimulai | — |
 | Fase 9 — Deployment | ⬜ Belum dimulai | — |
@@ -522,38 +522,157 @@ git commit -m "feat: logika transaksi atomik via Postgres RPC (Fase 5)
 
 ---
 
-## Fase 6 — Kompresi Gambar
+## Fase 6 — Kompresi Gambar & Input Data Barang (Penitipan & PIC)
 
-**Tujuan:** Kompresi foto bukti transaksi di sisi klien sebelum upload ke Supabase Storage (hemat kuota free-tier).
+**Tujuan:** 
+1. Mengimplementasikan kompresi gambar sisi klien (~200KB) menggunakan Web Worker untuk menghemat kuota dan mempercepat upload.
+2. Mengintegrasikan upload foto ke **Supabase Storage** (`transaction-proofs` dan `item-photos`).
+3. Memperbarui form **Penitipan Barang** (Langkah 2) agar meminta data spesifik barang titipan beserta foto bukti.
+4. Membuat fitur **Tambah Barang Baru** bagi PIC/Admin untuk menambah inventaris katalog langsung dari aplikasi.
 
-### File yang akan Dibuat
+---
 
-| # | File | Keterangan |
-|---|---|---|
-| 1 | `src/lib/imageCompression.js` | Fungsi `compressImageFile` dengan web worker |
-| 2 | `src/components/PhotoUpload.jsx` | Komponen upload + preview + progress |
+### 1. Arsitektur & File yang akan Dibuat / Diperbarui
 
-### Target Kompresi
+| # | File / Komponen | Tipe | Keterangan |
+|---|---|---|---|
+| 1 | `src/lib/imageCompression.js` | Utility | Fungsi `compressImageFile(file)` berbasis `browser-image-compression` |
+| 2 | `src/lib/storageService.js` | Service | Fungsi helper upload file ke Supabase Storage dan generate public URL |
+| 3 | `src/components/PhotoUpload.jsx` | Komponen | UI Upload foto + preview + progress kompresi (ukuran asli vs terkompresi) |
+| 4 | `src/components/PhotoUpload.css` | Styling | Styling modern drag-and-drop / preview foto |
+| 5 | `src/pages/TransactionWizard.jsx` | Halaman | Update Step 2 khusus Penitipan (Nama Barang, Deskripsi, Foto Bukti) |
+| 6 | `src/components/AddItemModal.jsx` | Komponen | Modal form PIC untuk input barang baru ke tabel `items` + upload foto katalog |
+| 7 | `src/components/AddItemModal.css` | Styling | Styling modal input barang baru |
+| 8 | `src/pages/CatalogPage.jsx` | Halaman | Tambah tombol aksi "+ Tambah Barang Baru" untuk PIC |
 
-- Ukuran akhir: ≤ 200KB
-- Max dimensi: 1024px (lebar atau tinggi)
-- Gunakan Web Worker agar UI tidak freeze saat kompresi
+---
 
-### Checklist Verifikasi
+### 2. Konfigurasi Supabase Storage (Manual di Dashboard)
 
-- [ ] `console.log(file.size)` sebelum dan sesudah kompresi — bedanya nyata
-- [ ] Upload foto 5MB asli → hasil mendekati 200KB, kualitas masih layak
-- [ ] UI tidak freeze/hang saat kompresi berjalan
+Sebelum upload berjalan, bucket penyimpanan foto harus disiapkan di Supabase:
+1. Masuk ke **Supabase Dashboard** → **Storage** → **New Bucket**:
+   - Bucket 1: `transaction-proofs` (Public bucket) → untuk foto bukti transaksi & penitipan.
+   - Bucket 2: `item-photos` (Public bucket) → untuk foto barang katalog.
+2. Setup RLS Policy Storage:
+   - `SELECT`: Public (semua orang bisa melihat foto).
+   - `INSERT`: Public (MVP) / Authenticated (Fase 7).
 
-### Git Commit
+---
+
+### 3. Alur Form 1: Penitipan Barang (Oleh Panitia)
+
+```
+Langkah 1 (Identitas)
+  ├── Nama Panitia
+  └── Nama Event / Divisi
+       ↓ Klik Lanjut
+Langkah 2 (Detail Barang Titipan)
+  ├── Nama Barang Titipan * (wajib)
+  ├── Rincian / Deskripsi / Jumlah
+  └── Upload Foto Bukti * (otomatis dikompresi ~150KB)
+       ↓ Klik Lanjut
+Langkah 3 (Konfirmasi & Submit)
+  ├── Upload foto ke bucket 'transaction-proofs'
+  └── Eksekusi RPC process_checkout_transaction ('penitipan')
+```
+
+---
+
+### 4. Alur Form 2: Input Barang Baru (Oleh PIC Gudang)
+
+```
+Tombol "+ Tambah Barang" di Katalog
+  ↓ Klik
+Modal Input Barang Baru
+  ├── Nama Barang * (wajib)
+  ├── Deskripsi Barang (opsional)
+  ├── Jumlah Stok Awal * (angka, min 1)
+  ├── Satuan / Unit * (pcs, roll, unit, box, dll)
+  └── Upload Foto Barang (opsional, otomatis dikompresi)
+  ↓ Klik Simpan
+Upload foto ke bucket 'item-photos' → INSERT ke tabel 'items' → Refresh Katalog otomatis
+```
+
+---
+
+### 5. Target Teknis Kompresi Gambar
+
+- **Library**: `browser-image-compression`
+- **Max Size**: `0.2` MB (~200KB)
+- **Max Dimension**: `1024px` (lebar/tinggi, mempertahankan aspect ratio)
+- **Web Worker**: `true` (kompresi berjalan di background thread, UI tidak freeze)
+- **Output**: `File` object siap dikirim ke `supabase.storage.from(bucket).upload()`
+
+---
+
+### Checklist Verifikasi Fase 6
+
+- [ ] `browser-image-compression` terinstall dan berfungsi
+- [ ] Bucket `transaction-proofs` dan `item-photos` aktif di Supabase Storage
+- [ ] Upload foto 5MB terbukti menyusut menjadi < 200KB di console
+- [ ] Form Penitipan (Langkah 2) meminta nama barang, deskripsi, dan foto bukti
+- [ ] Tombol "+ Tambah Barang" berhasil memasukkan barang baru ke tabel `items` dan tampil di katalog
+- [ ] Foto barang baru langsung muncul di kartu `ItemCard` katalog tanpa reload halaman
+
+---
+
+---
+
+## Fase 6.5 — 4 Menu Transaksi, Tampilan Barang Titipan Aktif, & Pengambilan Barang
+
+**Tujuan:**
+1. Menyempurnakan pembagian transaksi menjadi **4 Menu Utama**: Pemakaian, Pengembalian, Penitipan, dan Pengambilan Barang Titipan.
+2. Menyediakan **Tab Switcher di Dashboard** untuk memilih antara melihat **Katalog Barang Gudang** atau **Barang Titipan Aktif**.
+3. Membuat alur **Wizard Pengambilan Barang Titipan** untuk mencatat serah terima barang titipan yang diambil kembali oleh pemiliknya.
+4. Membuat SQL View `active_deposits` untuk menyaring barang titipan yang belum diambil.
+
+---
+
+### Alur Wizard: Pengambilan Barang Titipan
+
+```
+Langkah 1 (Identitas Pengambil)
+  ├── Nama Pengambil *
+  └── Nama Event / Divisi *
+       ↓ Klik Lanjut
+Langkah 2 (Pilih Barang Titipan)
+  ├── Pilih kartu barang titipan yang aktif
+  └── Upload Foto Bukti Pengambilan / Serah Terima (opsional)
+       ↓ Klik Lanjut
+Langkah 3 (Konfirmasi & Submit)
+  ├── Ringkasan: Penitip Awal vs Pengambil
+  └── Submit Transaksi 'pengambilan' (related_transaction_id = ID Penitipan)
+       ↓
+  Barang otomatis hilang dari daftar "Barang Titipan Aktif" dan tercatat di Riwayat
+```
+
+---
+
+## Fase 6.6 — Integrasi Auto-Backup Google Sheets & Google Drive
+
+**Tujuan:**
+1. Menyediakan pencadangan otomatis (*secondary backup*) ke Google Spreadsheet setiap kali terjadi transaksi inventaris di web.
+2. Otomatis mengunduh dan menyalin foto bukti transaksi dari Supabase ke Folder khusus di **Google Drive** panitia (`Gudang RTB - Foto Bukti`).
+3. Menggunakan pola arsitektur **Fire-and-Forget (Non-blocking)** agar proses backup di latar belakang tidak memperlambat respon aplikasi web.
+
+---
+
+### File yang Dibuat & Dimodifikasi
+
+| # | File | Status | Keterangan |
+|---|---|---|---|
+| 1 | `docs/google-apps-script.js` | ✅ | Script webhook Google Apps Script untuk dipasang di Google Sheets |
+| 2 | `src/lib/googleSyncService.js` | ✅ | Service helper non-blocking `fetch` ke Google Apps Script |
+| 3 | `.env.example` | ✅ | Menambahkan variabel `VITE_GOOGLE_APPS_SCRIPT_URL` |
+| 4 | `src/pages/TransactionWizard.jsx` | ✅ | Panggilan sync otomatis saat submit transaksi |
+| 5 | `src/components/AddItemModal.jsx` | ✅ | Panggilan sync otomatis saat penambahan barang baru oleh PIC |
+
+---
+
+### Git Commit Rencana
 
 ```bash
-git commit -m "feat: kompresi gambar sisi klien sebelum upload (Fase 6)
-
-- Install browser-image-compression
-- Buat imageCompression.js: target 200KB, maxWidth 1024px, web worker
-- Buat PhotoUpload.jsx: upload + preview + indicator ukuran
-- Integrasi ke TransactionPage sebelum supabase.storage.upload()"
+git commit -m "feat: integrasi auto-backup transaksi ke Google Sheets & Google Drive (Fase 6.6)"
 ```
 
 ---

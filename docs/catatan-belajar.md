@@ -961,3 +961,165 @@ Berdasarkan evaluasi penggunaan nyata, membedakan barang menjadi "Habis Pakai" d
   1. **UI Bersih**: Tidak ada lagi badge "Habis Pakai" / "Pinjam" yang membingungkan panitia.
   2. **Logika Kode Sederhana**: Menghilangkan percabangan `IF is_consumable` di SQL dan React, membuat alur transaksi jauh lebih mudah dipelihara (maintainable) dan bebas dari bug status.
   3. **Transparansi Penuh**: Siapa pun yang membawa barang apa pun (baik proyektor maupun ATK) dapat dilacak secara akurat lewat `active_loans`.
+
+---
+
+## Fase 6 — Kompresi Gambar, Supabase Storage, & Input Data Barang
+
+### 1. Mengapa Kompresi Gambar Sisi Klien (Client-Side) Wajib Ada?
+1. **Efisiensi Kuota & Biaya**: Kuota Supabase Storage free-tier adalah 1GB. Foto kamera HP modern rata-rata 4MB–10MB per foto (hanya muat ~100–250 foto!). Dengan kompresi sisi klien ke ~150KB–200KB, kuota 1GB bisa menampung **>5.000 foto bukti**.
+2. **Koneksi Lapangan Tidak Stabil**: Saat acara berlangsung di lapangan/gedung, sinyal 4G sering padat. Mengunggah file 200KB selesai dalam 1–2 detik, sementara file 10MB memakan waktu puluhan detik dan berisiko putus di tengah jalan (*network timeout*).
+3. **Web Worker**: Kompresi gambar membutuhkan kalkulasi grafis yang berat. Opsi `useWebWorker: true` memindahkan pemrosesan ke thread latar belakang (*background thread*), sehingga antarmuka browser tetap mulus 60 FPS dan tidak macet (*freeze*) saat user memilih foto.
+
+### 2. Integrasi Supabase Storage & Public URL
+Alur pengunggahan foto:
+```
+User Pilih Foto ──► imageCompression.js (Web Worker ~150KB)
+                         │
+                         ▼
+             storageService.js (Upload ke bucket Supabase)
+                         │
+                         ▼
+        Dapatkan Public URL (https://...supabase.co/storage/v1/...)
+                         │
+                         ▼
+Simpan URL string ke kolom 'photo_url' atau 'proof_photo_url' di PostgreSQL
+```
+
+### 3. Dua Pola Input Barang di Gudang RTB:
+1. **Form Penitipan Barang (Panitia)**:
+   - Digunakan untuk barang titipan dari luar acara yang masuk sementara ke gudang.
+   - Menggunakan alur Wizard Step 2: Nama barang, rincian, dan foto bukti wajib.
+   - Disimpan sebagai transaksi header bertipe `'penitipan'` di tabel `transactions`.
+2. **Form Tambah Barang Baru (PIC Gudang)**:
+   - Digunakan oleh penanggung jawab gudang untuk memperluas katalog barang inventaris.
+   - Menggunakan komponen `AddItemModal`: Nama barang, deskripsi, stok awal, pilihan satuan cepat (*pcs, unit, roll, set, dll*), dan foto katalog opsional.
+   - Disimpan langsung ke tabel `items` dan langsung memicu pembaruan grid katalog secara instan via `refetch()`.
+
+### 4. Fitur Riwayat Transaksi & Audit Trail (`HistoryModal`)
+Untuk transparansi dan akuntabilitas gudang:
+- **Relational Query Bersarang**: Supabase memungkinkan pengambilan data transaksi sekaligus detail barangnya dalam satu request yang efisien:
+  ```js
+  .from('transactions')
+  .select('*, transaction_details(*, items(*))')
+  ```
+- **Filter Multi-Kategori & Instant Search**: Memungkinkan PIC memfilter jenis transaksi (Pemakaian, Pengembalian, Penitipan, Penambahan, Penghapusan) serta mencari berdasarkan nama panitia, event, maupun nama barang.
+- **Detail View & Fullscreen Photo Zoom**: Mengklik transaksi membuka kartu detail lengkap beserta foto bukti yang bisa di-zoom untuk verifikasi fisik.
+
+### 5. Penghapusan Barang (Soft Delete) & Pencatatan Audit Trail
+Mengapa kita menggunakan **Soft Delete** (`status = 'archived'`) alih-alih `DELETE FROM items`?
+1. **Integritas Relasional Database**: Jika barang di-*hard delete*, semua baris transaksi lama di `transaction_details` yang mereferensikan `item_id` tersebut akan error atau ikut terhapus (*cascade*).
+2. **Riwayat Tidak Hilang**: Panitia tetap bisa melihat siapa yang pernah meminjam barang tersebut di masa lalu.
+3. **Audit Trail Otomatis**: Setiap aksi tambah barang atau hapus barang oleh PIC otomatis dicatat ke tabel `transactions` bertipe `'penambahan'` atau `'penghapusan'`, sehingga seluruh aktivitas katalog tercatat rapi di Riwayat Transaksi.
+
+---
+
+## Fase 6.5 — Pemisahan Domain: Inventarisasi Gudang vs Penitipan Barang Luar
+
+### 1. Pelajaran Penting: Memahami Perbedaan Domain (Domain Modeling)
+Salah satu kesalahan umum saat mendesain sistem inventaris adalah **mencampuradukkan kepemilikan barang**:
+- **Barang Inventaris Resmi (Tabel `items`)**:
+  - Milik gudang RTB (misal: kabel HDMI, proyektor, terminal listrik).
+  - Memiliki hitungan stok (`stock_available`, `stock_in_use`).
+  - Mengikuti siklus: **Pemakaian ➔ Pengembalian**.
+- **Barang Titipan Luar (Tabel `transactions` - 'penitipan')**:
+  - Milik panitia/vendor luar yang hanya *numpang simpan* sementara di gudang (misal: banner backdrop 3x4m, koper kostum panitia).
+  - Bukan aset gudang, sehingga **TIDAK BOLEH** dimasukkan ke tabel `items` (agar tidak mengotori katalog inventaris resmi).
+  - Mengikuti siklus: **Penitipan ➔ Pengambilan**.
+
+### 2. Pola Relasi Self-Referencing (`related_transaction_id`)
+Bagaimana sistem mengetahui barang titipan mana yang sudah diambil dan mana yang belum?
+Alih-alih membuat tabel baru `deposits`, kita menggunakan relasi **Self-Referencing** pada tabel `transactions`:
+1. Saat barang masuk: dibuat baris transaksi `'penitipan'` (dengan ID unik, misal `uuid-1`).
+2. Saat barang diambil: dibuat baris transaksi `'pengambilan'` dengan mengisi kolom `related_transaction_id = 'uuid-1'`.
+3. Keuntungan:
+   - Struktur database tetap ramping dan konsisten (1 tabel untuk seluruh log pergerakan).
+   - Riwayat serah terima (siapa yang menitipkan vs siapa yang mengambil) terlacak secara matematis dan relasional.
+
+### 3. Menggunakan SQL View `active_deposits` (Anti-Join Pattern)
+Untuk menampilkan daftar barang titipan yang **masih aktif** (belum diambil):
+```sql
+CREATE VIEW active_deposits AS
+SELECT * FROM transactions t
+WHERE t.transaction_type = 'penitipan'
+  AND t.id NOT IN (
+    SELECT related_transaction_id 
+    FROM transactions 
+    WHERE transaction_type = 'pengambilan' 
+      AND related_transaction_id IS NOT NULL
+  );
+```
+Dengan View ini, logika kompleks *anti-join* (`NOT IN`) dikerjakan di PostgreSQL, dan kode frontend React hanya perlu melakukan query bersih: `supabase.from('active_deposits').select('*')`.
+
+### 4. UX Design: Segmented Tab Switcher pada Dashboard
+Di halaman Dashboard, kita memisahkan eksplorasi data menggunakan **Segmented Tab Switcher**:
+- Tab 1: **📦 Katalog Barang Gudang** → Fokus pada aset dan ketersediaan unit inventaris.
+- Tab 2: **🎒 Barang Titipan Aktif** → Fokus pada pengawasan barang luar dan tombol cepat `[ 🏷️ Ambil Barang Ini ]`.
+Pola ini memberikan kejernihan visual (*visual clarity*) sehingga panitia di lapangan tidak kebingungan saat mencari barang.
+
+---
+
+## Fase 6.6 — Integrasi Auto-Backup Google Sheets & Google Drive
+
+### 1. Arsitektur Hybrid Backup: Single Source of Truth vs Secondary Archive
+Mengapa kita tetap memakai Supabase dan tidak langsung menggunakan Google Sheets saja?
+- **Supabase (Primary Source of Truth)**: Menyediakan transaksi database yang atomik (ACID), integritas relasi foreign key, validasi stok instan, dan query performa tinggi (< 100ms) untuk antarmuka web.
+- **Google Sheets & Drive (Secondary Backup / Audit Archive)**: Berfungsi sebagai data cadangan gratis (*free storage*), mudah dibagikan ke panitia non-teknis, dan memudahkan pembuatan laporan spreadsheet tanpa perlu mengekspor manual.
+
+### 2. Pola Arsitektur Fire-and-Forget (Non-Blocking Webhook)
+Dalam aplikasi web modern yang membutuhkan responsivitas tinggi:
+```
+[User Klik Kirim Transaksi]
+        │
+        ├── 1. INSERT ke Supabase (Wajib Berhasil, ~200ms)
+        │       ↓ Selesai
+        │   [UI Menampilkan Sukses & Kembali ke Dashboard]
+        │
+        └── 2. fetch(Google Apps Script) di Background (Fire-and-Forget)
+                ↓ Berjalan tanpa mengunci antarmuka browser
+            [Google Apps Script mencatat baris & copy foto ke Drive]
+```
+- **Mengapa non-blocking penting?** Google Apps Script rata-rata membutuhkan waktu 1–3 detik untuk mengunduh gambar dan menulis ke Drive. Jika frontend menunggu (*await*) respon Google sebelum menutup modal, user akan merasa aplikasi "lag" atau "macet".
+- Dengan pola *fire-and-forget*, kegagalan koneksi ke Google tidak akan pernah membatalkan transaksi sah yang sudah masuk ke database Supabase.
+
+### 3. Solusi CORS pada Google Apps Script (`mode: 'no-cors'`)
+Secara default, Google Apps Script Web App merespons dengan kode status HTTP `302 Moved Temporarily` (Redirect). Browser modern sering memblokir redirect ini karena pembatasan Cross-Origin Resource Sharing (CORS).
+- Solusi di frontend: Menggunakan opsi `mode: 'no-cors'` pada `fetch()`.
+- Request tetap sampai dan dieksekusi oleh `doPost(e)` di Google Apps Script secara sempurna tanpa error CORS di console browser.
+
+### 4. Cloud-to-Cloud Image Transfer (Menghemat Bandwidth Seluler Panitia)
+Daripada meminta HP panitia mengunggah foto 2 kali (sekali ke Supabase dan sekali ke Google Drive yang akan memakan kuota 2x lipat):
+1. HP panitia hanya mengunggah 1 kali foto terkompresi (~200KB) ke Supabase Storage.
+2. Webhook mengirimkan URL publik foto tersebut ke Google Apps Script.
+3. Google Apps Script menggunakan `UrlFetchApp.fetch(photoUrl)` untuk mendownload gambar langsung antar-server cloud (*server-to-server*) dan memasukkannya ke Google Drive panitia.
+4. **Hasil**: Efisiensi kuota maksimal bagi panitia di lapangan!
+
+### 5. Debugging React: Mengapa Alert Muncul 2 Kali? (React StrictMode & Pure State Updaters)
+Saat mengklik barang yang stoknya habis di mode dev (`npm run dev`), dialog `alert()` sempat muncul **2 kali berturut-turut**. Mengapa ini terjadi?
+
+1. **Penyebab Utama (Side Effect di dalam State Updater)**:
+   Sebelumnya, kita menaruh `alert()` di dalam fungsi updater state:
+   ```javascript
+   // ❌ SALAH: Menaruh side effect di dalam updater
+   setCartItems(prev => {
+     if (quantity >= stock) {
+       alert('Stok tidak cukup!') // ← Efek samping terpanggil 2x
+       return prev
+     }
+     return [...prev, item]
+   })
+   ```
+2. **Perilaku React 18 StrictMode**:
+   Di environment development, React sengaja menjalankan fungsi updater state (`setState(prev => ...)`) **2 kali berturut-turut** untuk mendeteksi *impurities* (efek samping yang tidak boleh ada di fungsi kalkulasi state).
+3. **Solusi yang Benar (Pure State Transformation)**:
+   Validasi dan side effect (seperti `alert()`) harus dipindahkan **ke luar** pemanggilan `setState`, dan fungsi updater harus murni hanya menghitung array state baru:
+   ```javascript
+   // ✅ BENAR: Validasi & alert di luar, state updater tetap 'murni' (pure function)
+   const existing = cartItems.find(i => i.item.id === item.id)
+   if (existing && existing.quantity >= item.stock_available) {
+     alert('Kuantitas melebihi stok tersedia!')
+     return // Hentikan sebelum setState
+   }
+
+   setCartItems(prev => prev.map(...))
+   ```
