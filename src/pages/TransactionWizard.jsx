@@ -331,6 +331,10 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
             <h3>Pilih Barang</h3>
             <p>Klik barang pada katalog di bawah untuk menambahkan ke daftar transaksi.</p>
             
+            <div className="catalog-wrapper">
+              <CatalogPage onItemClick={handleItemClick} />
+            </div>
+
             {cartItems.length > 0 && (
               <div className="local-cart">
                 <h4>Barang Terpilih:</h4>
@@ -348,10 +352,6 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
                 </ul>
               </div>
             )}
-
-            <div className="catalog-wrapper">
-              <CatalogPage onItemClick={handleItemClick} />
-            </div>
 
             <div className="wizard-actions">
               <button className="btn-secondary" onClick={prevStep}>← Kembali</button>
