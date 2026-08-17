@@ -15,7 +15,7 @@
  * @param {Function} [props.onItemClick] - Jika diberikan, klik barang akan memanggil fungsi ini (digunakan di dalam TransactionWizard)
  * @returns {JSX.Element}
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useItems } from '../hooks/useItems'
 import ItemCard from '../components/ItemCard'
 import ItemDetailModal from '../components/ItemDetailModal'
@@ -24,11 +24,41 @@ import { supabase } from '../lib/supabaseClient'
 import { syncAllItemsToGoogle } from '../lib/googleSyncService'
 import '../components/ItemCard.css'
 
-function CatalogPage({ onItemClick, onOpenHistory }) {
+function CatalogPage({ onItemClick, onOpenHistory, cartItems = [], wizardType = null }) {
   const { items, isLoading, error, searchQuery, setSearchQuery, totalItems, refetch } = useItems()
   const [selectedItem, setSelectedItem] = useState(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
+
+  /**
+   * Menghitung stok barang yang disesuaikan secara real-time jika ada barang yang sedang dipilih di local cart.
+   * - wizard_pemakaian: mengurangi sisa stock_available
+   * - wizard_pengembalian: mengurangi stock_in_use dan menambah sisa stock_available
+   */
+  const displayedItems = useMemo(() => {
+    if (!cartItems || cartItems.length === 0) return items
+
+    return items.map((item) => {
+      const inCart = cartItems.find((c) => c.item.id === item.id)
+      if (!inCart) return item
+
+      if (wizardType === 'wizard_pemakaian') {
+        return {
+          ...item,
+          raw_stock_available: item.stock_available,
+          stock_available: Math.max(0, item.stock_available - inCart.quantity)
+        }
+      } else if (wizardType === 'wizard_pengembalian') {
+        return {
+          ...item,
+          raw_stock_in_use: item.stock_in_use,
+          stock_in_use: Math.max(0, item.stock_in_use - inCart.quantity),
+          stock_available: item.stock_available + inCart.quantity
+        }
+      }
+      return item
+    })
+  }, [items, cartItems, wizardType])
 
   // Handler sinkronisasi seluruh stok barang ke Google Spreadsheet
   const handleSyncToSpreadsheet = async () => {
@@ -189,9 +219,9 @@ function CatalogPage({ onItemClick, onOpenHistory }) {
       )}
 
       {/* === Grid Barang === */}
-      {!isLoading && !error && items.length > 0 && (
+      {!isLoading && !error && displayedItems.length > 0 && (
         <div className="catalog-grid" role="list" aria-label="Daftar barang">
-          {items.map((item) => (
+          {displayedItems.map((item) => (
             <div key={item.id} role="listitem">
               <ItemCard 
                 item={item} 

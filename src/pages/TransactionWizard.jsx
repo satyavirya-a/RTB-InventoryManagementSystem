@@ -64,14 +64,18 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
 
   // Logika Cart Lokal
   const handleItemClick = (item) => {
+    // Ambil batas stok asli dari database
+    const maxAvailable = item.raw_stock_available ?? item.stock_available
+    const maxInUse = item.raw_stock_in_use ?? item.stock_in_use
+
     // 1. Validasi awal untuk transaksi Pengembalian
-    if (type === 'wizard_pengembalian' && item.stock_in_use <= 0) {
+    if (type === 'wizard_pengembalian' && maxInUse <= 0) {
       alert('Tidak ada unit barang ini yang sedang dipakai/dipinjam.')
       return
     }
 
     // 2. Validasi awal untuk transaksi Pemakaian
-    if (type === 'wizard_pemakaian' && item.stock_available <= 0) {
+    if (type === 'wizard_pemakaian' && maxAvailable <= 0) {
       alert('Stok barang tersedia habis!')
       return
     }
@@ -79,14 +83,21 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
     // 3. Validasi kuantitas barang yang sudah ada di cart (di luar state updater)
     const existing = cartItems.find(i => i.item.id === item.id)
     if (existing) {
-      if (type === 'wizard_pemakaian' && existing.quantity >= item.stock_available) {
-        alert(`Kuantitas pemakaian tidak boleh melebihi stok tersedia (${item.stock_available} ${item.unit}).`)
+      if (type === 'wizard_pemakaian' && existing.quantity >= maxAvailable) {
+        alert(`Kuantitas pemakaian tidak boleh melebihi stok tersedia (${maxAvailable} ${item.unit}).`)
         return
       }
-      if (type === 'wizard_pengembalian' && existing.quantity >= item.stock_in_use) {
-        alert(`Kuantitas pengembalian tidak boleh melebihi jumlah yang sedang dipinjam (${item.stock_in_use} ${item.unit}).`)
+      if (type === 'wizard_pengembalian' && existing.quantity >= maxInUse) {
+        alert(`Kuantitas pengembalian tidak boleh melebihi jumlah yang sedang dipinjam (${maxInUse} ${item.unit}).`)
         return
       }
+    }
+
+    // Buat salinan item dengan stok asli agar tidak terdistorsi pada kalkulasi berikutnya
+    const baseItem = {
+      ...item,
+      stock_available: maxAvailable,
+      stock_in_use: maxInUse
     }
 
     // 4. Pure state updater: tidak memuat side-effect seperti alert()
@@ -95,7 +106,7 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
       if (idx !== -1) {
         return prev.map((i, index) => index === idx ? { ...i, quantity: i.quantity + 1 } : i)
       }
-      return [...prev, { item, quantity: 1 }]
+      return [...prev, { item: baseItem, quantity: 1 }]
     })
   }
 
@@ -105,16 +116,18 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
     if (!existing) return
 
     const newQty = existing.quantity + delta
+    const maxAvailable = existing.item.raw_stock_available ?? existing.item.stock_available
+    const maxInUse = existing.item.raw_stock_in_use ?? existing.item.stock_in_use
 
     // Validasi batas kuantitas dilakukan SEBELUM masuk ke state updater
     if (newQty > 0) {
-      if (type === 'wizard_pemakaian' && newQty > existing.item.stock_available) {
-        alert(`Kuantitas tidak boleh melebihi stok tersedia (${existing.item.stock_available} ${existing.item.unit}).`)
+      if (type === 'wizard_pemakaian' && newQty > maxAvailable) {
+        alert(`Kuantitas tidak boleh melebihi stok tersedia (${maxAvailable} ${existing.item.unit}).`)
         return
       }
 
-      if (type === 'wizard_pengembalian' && newQty > existing.item.stock_in_use) {
-        alert(`Kuantitas tidak boleh melebihi jumlah yang sedang dipinjam (${existing.item.stock_in_use} ${existing.item.unit}).`)
+      if (type === 'wizard_pengembalian' && newQty > maxInUse) {
+        alert(`Kuantitas tidak boleh melebihi jumlah yang sedang dipinjam (${maxInUse} ${existing.item.unit}).`)
         return
       }
     }
@@ -332,7 +345,11 @@ function TransactionWizard({ type, onCancel, initialDepositItem = null }) {
             <p>Klik barang pada katalog di bawah untuk menambahkan ke daftar transaksi.</p>
             
             <div className="catalog-wrapper">
-              <CatalogPage onItemClick={handleItemClick} />
+              <CatalogPage 
+                onItemClick={handleItemClick} 
+                cartItems={cartItems}
+                wizardType={type}
+              />
             </div>
 
             {cartItems.length > 0 && (
