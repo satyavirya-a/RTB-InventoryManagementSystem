@@ -37,7 +37,10 @@ function PhotoUpload({
   const [isCompressing, setIsCompressing] = useState(false)
   const [compressingText, setCompressingText] = useState('')
   const [isDragOver, setIsDragOver] = useState(false)
-  const fileInputRef = useRef(null)
+  
+  // Ref terpisah: satu khusus kamera langsung, satu untuk galeri/file
+  const galleryInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
 
   // Normalisasi data: array untuk multi-foto, single untuk single-foto
   const currentPreviews = isMultiple 
@@ -54,7 +57,7 @@ function PhotoUpload({
    * @param {FileList|Array<File>} fileList
    */
   const processFiles = async (fileList) => {
-    const rawFiles = Array.from(fileList || []).filter(f => f && f.type.startsWith('image/'))
+    const rawFiles = Array.from(fileList || []).filter(f => f && (f.type.startsWith('image/') || f.name.match(/\.(jpe?g|png|webp|heic|heif)$/i)))
     
     if (rawFiles.length === 0) {
       alert('Harap pilih file gambar yang valid (JPG, PNG, atau WebP).')
@@ -112,7 +115,8 @@ function PhotoUpload({
     } finally {
       setIsCompressing(false)
       setCompressingText('')
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      if (galleryInputRef.current) galleryInputRef.current.value = ''
+      if (cameraInputRef.current) cameraInputRef.current.value = ''
     }
   }
 
@@ -177,6 +181,26 @@ function PhotoUpload({
         )}
       </div>
 
+      {/* Hidden Inputs: Kamera Langsung vs Galeri */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="photo-input-hidden"
+        onChange={handleFileChange}
+        disabled={disabled || isCompressing}
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        multiple={isMultiple}
+        className="photo-input-hidden"
+        onChange={handleFileChange}
+        disabled={disabled || isCompressing}
+      />
+
       {/* Grid Multi-Foto Preview (Jika mode multiple dan ada foto) */}
       {isMultiple && currentPreviews.length > 0 && (
         <div className="photo-preview-grid">
@@ -206,55 +230,45 @@ function PhotoUpload({
             <div className="photo-single-preview__actions">
               <button
                 type="button"
-                className="btn-photo-replace"
-                onClick={() => !disabled && !isCompressing && fileInputRef.current?.click()}
+                className="btn-photo-action-sm btn-photo-action-sm--camera"
+                onClick={() => !disabled && !isCompressing && cameraInputRef.current?.click()}
                 disabled={disabled || isCompressing}
+                title="Ambil foto baru pakai kamera"
               >
-                📸 Ganti Foto
+                📸 Kamera
+              </button>
+              <button
+                type="button"
+                className="btn-photo-action-sm btn-photo-action-sm--gallery"
+                onClick={() => !disabled && !isCompressing && galleryInputRef.current?.click()}
+                disabled={disabled || isCompressing}
+                title="Pilih foto baru dari galeri"
+              >
+                🖼️ Galeri
               </button>
               <button
                 type="button"
                 className="btn-photo-remove"
                 onClick={(e) => handleRemovePhoto(0, e)}
                 disabled={disabled || isCompressing}
+                title="Hapus foto"
               >
                 🗑️ Hapus
               </button>
             </div>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/jpg"
-            className="photo-input-hidden"
-            onChange={handleFileChange}
-            disabled={disabled || isCompressing}
-          />
         </div>
       )}
 
-      {/* Dropzone untuk memilih / menambah foto (hanya tampil jika belum ada foto atau mode multiple) */}
+      {/* Dropzone & Tombol Pilihan Aksi (Kamera vs Galeri) */}
       {(isMultiple ? currentPreviews.length < maxPhotos : currentPreviews.length === 0) && (
         <div
           className={`photo-dropzone ${isDragOver ? 'photo-dropzone--dragover' : ''} ${disabled ? 'photo-dropzone--disabled' : ''} ${currentPreviews.length > 0 ? 'photo-dropzone--compact' : ''}`}
-          onClick={() => !disabled && !isCompressing && fileInputRef.current?.click()}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          role="button"
-          tabIndex={0}
           aria-label="Pilih foto untuk diunggah"
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/jpg"
-            multiple={isMultiple}
-            className="photo-input-hidden"
-            onChange={handleFileChange}
-            disabled={disabled || isCompressing}
-          />
-
           {/* State Loading */}
           {isCompressing && (
             <div className="photo-upload-status photo-upload-status--loading">
@@ -265,17 +279,39 @@ function PhotoUpload({
 
           {/* State Siap Pilih Foto */}
           {!isCompressing && (
-            <div className="photo-upload-placeholder">
-              <span className="photo-upload-icon" aria-hidden="true">
-                {currentPreviews.length > 0 ? '➕' : '📸'}
-              </span>
-              <p className="photo-upload-prompt">
-                <strong>{currentPreviews.length > 0 ? 'Tambah Foto Lain' : 'Klik untuk pilih foto'}</strong>
-                {currentPreviews.length === 0 && ' atau seret file ke sini'}
-              </p>
-              <span className="photo-upload-hint">
-                {isMultiple ? `Bisa pilih hingga ${maxPhotos} foto sekaligus (otomatis dikompresi ~200KB)` : hint}
-              </span>
+            <div className="photo-upload-content">
+              <div className="photo-upload-cta-buttons">
+                <button
+                  type="button"
+                  className="btn-photo-cta btn-photo-cta--camera"
+                  onClick={() => !disabled && !isCompressing && cameraInputRef.current?.click()}
+                  disabled={disabled || isCompressing}
+                >
+                  <span className="btn-photo-cta__icon">📸</span>
+                  <span className="btn-photo-cta__text">
+                    <strong>Ambil Foto Kamera</strong>
+                    <small>Langsung buka kamera HP</small>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-photo-cta btn-photo-cta--gallery"
+                  onClick={() => !disabled && !isCompressing && galleryInputRef.current?.click()}
+                  disabled={disabled || isCompressing}
+                >
+                  <span className="btn-photo-cta__icon">🖼️</span>
+                  <span className="btn-photo-cta__text">
+                    <strong>Pilih dari Galeri</strong>
+                    <small>{isMultiple ? 'Bisa pilih beberapa foto' : 'Pilih file dari galeri/memori'}</small>
+                  </span>
+                </button>
+              </div>
+
+              <div className="photo-upload-subhint">
+                <span className="photo-upload-subhint__desktop">atau seret file foto ke area ini • </span>
+                <span>{isMultiple ? `Maksimal ${maxPhotos} foto (otomatis dikompresi ~200KB)` : hint}</span>
+              </div>
             </div>
           )}
         </div>
@@ -285,3 +321,4 @@ function PhotoUpload({
 }
 
 export default PhotoUpload
+
