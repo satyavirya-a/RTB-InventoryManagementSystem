@@ -69,7 +69,56 @@ export const ITEM_STATUS = {
 }
 
 /**
+ * Daftar 15 Kategori Barang Inventaris Gudang RTB.
+ * Digunakan untuk pengelompokan barang, filter katalog, serta form tambah/edit barang.
+ *
+ * @type {string[]}
+ */
+export const ITEM_CATEGORIES = [
+  'Kertas',
+  'Kain',
+  'Alat Tulis',
+  'Alat Mewarnai',
+  'Lem & Perekat',
+  'Alat Potong',
+  'Tali',
+  'Pita',
+  'Bola',
+  'Pipa',
+  'Banner',
+  'Aksesoris',
+  'Alat Makan',
+  'Elektronik & Sound',
+  'Lain-lain'
+]
+
+/**
+ * Pemetaan Ikon Visual (Emoji) untuk masing-masing kategori barang.
+ * Membantu panitia mengidentifikasi kategori barang secara visual dan intuitif.
+ *
+ * @type {Record<string, string>}
+ */
+export const CATEGORY_ICONS = {
+  'Kertas': '📄',
+  'Kain': '🧵',
+  'Alat Tulis': '✏️',
+  'Alat Mewarnai': '🎨',
+  'Lem & Perekat': '🧴',
+  'Alat Potong': '✂️',
+  'Tali': '🧶',
+  'Pita': '🎀',
+  'Bola': '⚽',
+  'Pipa': '🪠',
+  'Banner': '🚩',
+  'Aksesoris': '💍',
+  'Alat Makan': '🍽️',
+  'Elektronik & Sound': '🔊',
+  'Lain-lain': '📦'
+}
+
+/**
  * Target ukuran maksimal foto bukti transaksi setelah kompresi (dalam MB).
  * Dipakai di src/lib/imageCompression.js (Fase 6).
  */
 export const MAX_PROOF_PHOTO_SIZE_MB = 0.2  // 200KB
+

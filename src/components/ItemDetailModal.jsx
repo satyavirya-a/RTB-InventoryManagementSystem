@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import EditItemModal from './EditItemModal'
+import { CATEGORY_ICONS } from '../lib/constants'
 import './ItemDetailModal.css'
 
 function ItemDetailModal({ item, onClose, onItemDeleted, onItemUpdated, onOpenHistory }) {
@@ -98,35 +99,16 @@ function ItemDetailModal({ item, onClose, onItemDeleted, onItemUpdated, onOpenHi
 
       if (updateError) throw updateError
 
-      // 2. Catat riwayat aksi penghapusan ke tabel transactions
-      const { data: transData, error: transError } = await supabase
-        .from('transactions')
-        .insert({
-          transaction_type: 'penghapusan',
-          actor_name: 'PIC Gudang',
-          event_name: 'Manajemen Inventaris',
-          notes: `Menghapus barang "${item.name}" dari katalog aktif. (Stok terakhir: ${item.stock_available} ${item.unit})`
-        })
-        .select()
-        .single()
+      // 2. Catat audit trail di tabel transactions
+      await supabase.from('transactions').insert({
+        transaction_type: 'penghapusan',
+        actor_name: 'PIC Gudang',
+        event_name: 'Manajemen Inventaris',
+        notes: `Barang "${item.name}" dinonaktifkan/dihapus dari katalog oleh PIC Gudang.`
+      })
 
-      if (transError) {
-        console.warn('Gagal mencatat transaksi log penghapusan (mungkin perlu update check constraint):', transError)
-      }
-
-      // 3. Catat detail barang yang dihapus jika log berhasil
-      if (transData) {
-        await supabase.from('transaction_details').insert({
-          transaction_id: transData.id,
-          item_id: item.id,
-          quantity: Math.max(1, item.stock_available)
-        })
-      }
-
-      alert(`Barang "${item.name}" berhasil dihapus dari katalog!`)
-      if (onItemDeleted) {
-        onItemDeleted(item.id)
-      }
+      alert(`Barang "${item.name}" berhasil dihapus dari katalog.`)
+      if (onItemDeleted) onItemDeleted(item.id)
       onClose()
     } catch (err) {
       console.error('Gagal menghapus barang:', err)
@@ -136,7 +118,18 @@ function ItemDetailModal({ item, onClose, onItemDeleted, onItemUpdated, onOpenHi
     }
   }
 
+  // Handler saat barang selesai diedit di EditItemModal
+  const handleItemUpdated = (updatedItem) => {
+    setCurrentItem(updatedItem)
+    if (onItemUpdated) {
+      onItemUpdated(updatedItem)
+    }
+  }
+
   if (!item) return null
+
+  const categoryName = activeItem.category || 'Lain-lain'
+  const categoryIcon = CATEGORY_ICONS[categoryName] || '📦'
 
   return (
     <>
@@ -171,6 +164,14 @@ function ItemDetailModal({ item, onClose, onItemDeleted, onItemUpdated, onOpenHi
         {/* Konten Detail */}
         <div className="item-modal__content">
           <div className="item-modal__header">
+            <div className="item-modal__tags">
+              <span className="item-modal__category-badge">
+                <span>{categoryIcon}</span> {categoryName}
+              </span>
+              <span className={`item-modal__type-badge ${activeItem.is_consumable ? 'consumable' : 'non-consumable'}`}>
+                {activeItem.is_consumable ? '📦 Habis Pakai' : '🔄 Pinjam-Kembali'}
+              </span>
+            </div>
             <h2 id="modal-title" className="item-modal__title">{activeItem.name}</h2>
           </div>
 

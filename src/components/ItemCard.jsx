@@ -18,6 +18,8 @@
  * @param {Function} [props.onClick] - Callback saat card diklik
  * @param {React.ReactNode} [props.action] - Tombol aksi custom (jika ada)
  */
+import { CATEGORY_ICONS } from '../lib/constants'
+
 function ItemCard({ item, onClick, action }) {
   /**
    * Menentukan warna dan label badge stok berdasarkan jumlah stok tersedia.
@@ -33,6 +35,8 @@ function ItemCard({ item, onClick, action }) {
   }
 
   const stockBadge = getStockBadgeInfo(item.stock_available)
+  const categoryName = item.category || 'Lain-lain'
+  const categoryIcon = CATEGORY_ICONS[categoryName] || '📦'
 
   return (
     <article
@@ -42,6 +46,11 @@ function ItemCard({ item, onClick, action }) {
     >
       {/* === Foto Barang === */}
       <div className="item-card__image-wrapper">
+        {/* Badge Kategori di Sudut Kiri Atas Foto */}
+        <div className="item-card__category-tag" title={`Kategori: ${categoryName}`}>
+          <span>{categoryIcon}</span> {categoryName}
+        </div>
+
         {item.photo_url ? (
           <img
             src={item.photo_url}

@@ -375,6 +375,83 @@ a {
 
 .catalog-search__clear:hover { background: var(--bg-surface-hover); }
 
+/* --- Category Filter Bar (Pills / Chips) --- */
+.catalog-category-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-2) 0 var(--space-3) 0;
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-border) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.catalog-category-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.catalog-category-bar::-webkit-scrollbar-thumb {
+  background: var(--bg-border);
+  border-radius: var(--radius-full);
+}
+
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.category-pill:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border-color: var(--color-primary);
+}
+
+.category-pill--active {
+  background: var(--color-primary) !important;
+  color: white !important;
+  border-color: var(--color-primary) !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px hsla(217, 91%, 60%, 0.35);
+}
+
+.category-pill__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--bg-base);
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+}
+
+.category-pill--active .category-pill__badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+.category-pill--empty {
+  opacity: 0.7;
+}
+
 /* --- Grid Barang Responsif --- */
 .catalog-grid {
   display: grid;

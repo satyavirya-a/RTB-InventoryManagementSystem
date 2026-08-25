@@ -22,10 +22,22 @@ import ItemDetailModal from '../components/ItemDetailModal'
 import AddItemModal from '../components/AddItemModal'
 import { supabase } from '../lib/supabaseClient'
 import { syncAllItemsToGoogle } from '../lib/googleSyncService'
+import { ITEM_CATEGORIES, CATEGORY_ICONS } from '../lib/constants'
 import '../components/ItemCard.css'
 
 function CatalogPage({ onItemClick, onOpenHistory, cartItems = [], wizardType = null }) {
-  const { items, isLoading, error, searchQuery, setSearchQuery, totalItems, refetch } = useItems()
+  const { 
+    items, 
+    isLoading, 
+    error, 
+    searchQuery, 
+    setSearchQuery, 
+    selectedCategory, 
+    setSelectedCategory, 
+    categoryCounts, 
+    totalItems, 
+    refetch 
+  } = useItems()
   const [selectedItem, setSelectedItem] = useState(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -100,7 +112,7 @@ function CatalogPage({ onItemClick, onOpenHistory, cartItems = [], wizardType = 
               <h2 className="catalog-header__title">Katalog Barang</h2>
               {!isLoading && (
                 <span className="catalog-header__count">
-                  {searchQuery
+                  {searchQuery || selectedCategory !== 'all'
                     ? `${items.length} dari ${totalItems} barang`
                     : `${totalItems} barang tersedia`}
                 </span>
@@ -140,7 +152,7 @@ function CatalogPage({ onItemClick, onOpenHistory, cartItems = [], wizardType = 
             id="catalog-search-input"
             type="search"
             className="catalog-search__input"
-            placeholder={isEmbedded ? "Ketik untuk mencari barang yang mau dipilih..." : "Cari nama barang..."}
+            placeholder={isEmbedded ? "Ketik untuk mencari barang yang mau dipilih..." : "Cari nama atau deskripsi barang..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Cari barang"
@@ -154,6 +166,38 @@ function CatalogPage({ onItemClick, onOpenHistory, cartItems = [], wizardType = 
               ✕
             </button>
           )}
+        </div>
+
+        {/* === Category Filter Bar (Pills Horizontal Scrollable) === */}
+        <div className="catalog-category-bar" role="tablist" aria-label="Filter kategori barang">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selectedCategory === 'all'}
+            className={`category-pill ${selectedCategory === 'all' ? 'category-pill--active' : ''}`}
+            onClick={() => setSelectedCategory('all')}
+          >
+            <span>✨ Semua</span>
+            <span className="category-pill__badge">{categoryCounts.all || 0}</span>
+          </button>
+
+          {ITEM_CATEGORIES.map((cat) => {
+            const count = categoryCounts[cat] || 0
+            const icon = CATEGORY_ICONS[cat] || '📦'
+            return (
+              <button
+                key={cat}
+                type="button"
+                role="tab"
+                aria-selected={selectedCategory === cat}
+                className={`category-pill ${selectedCategory === cat ? 'category-pill--active' : ''} ${count === 0 ? 'category-pill--empty' : ''}`}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                <span>{icon} {cat}</span>
+                <span className="category-pill__badge">{count}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
