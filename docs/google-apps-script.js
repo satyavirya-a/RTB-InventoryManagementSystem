@@ -39,7 +39,13 @@ var CUSTOM_SPREADSHEET_ID = "1REb2dCwLBp1-x4wcBeI_w2BvgK02QSBRl01Cf0-KDEE";
  * @returns {GoogleAppsScript.Content.TextOutput} Output JSON status keberhasilan
  */
 function doPost(e) {
+  // Gunakan ScriptLock untuk mencegah race condition jika ada 2 request sync masuk bersamaan
+  var lock = LockService.getScriptLock();
+  var hasLock = false;
   try {
+    // Tunggu giliran hingga 30 detik
+    hasLock = lock.tryLock(30000);
+
     // 1. Validasi isi body request
     if (!e || !e.postData || !e.postData.contents) {
       return createJsonResponse({ status: 'error', message: 'No post data received' });
@@ -72,6 +78,10 @@ function doPost(e) {
       status: 'error',
       message: error.toString()
     });
+  } finally {
+    if (hasLock) {
+      lock.releaseLock();
+    }
   }
 }
 
@@ -318,10 +328,18 @@ function saveCatalogPhotoToDrive(photoUrl, itemName) {
   var cleanItem = (itemName || 'Barang').replace(/[^a-zA-Z0-9]/g, '_');
   var fileName = 'Katalog_' + cleanItem + '.webp';
 
-  // Cek apakah file sudah pernah dibackup di folder tersebut untuk mencegah duplikasi file
+  // Cek apakah file sudah pernah dibackup di folder tersebut
   var existingFiles = folder.getFilesByName(fileName);
   if (existingFiles.hasNext()) {
-    return existingFiles.next().getUrl();
+    var primaryFile = existingFiles.next();
+    
+    // Jika sebelumnya sempat ada duplikat, pindahkan file duplikat berlebih ke Trash otomatis
+    while (existingFiles.hasNext()) {
+      var extraDuplicate = existingFiles.next();
+      extraDuplicate.setTrashed(true);
+    }
+    
+    return primaryFile.getUrl();
   }
 
   var response = UrlFetchApp.fetch(photoUrl);
