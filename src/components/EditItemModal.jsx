@@ -19,10 +19,12 @@ import PhotoUpload from './PhotoUpload'
 import { supabase } from '../lib/supabaseClient'
 import { uploadImageToStorage } from '../lib/storageService'
 import { syncAllItemsToGoogle } from '../lib/googleSyncService'
+import { ITEM_CATEGORIES, CATEGORY_ICONS } from '../lib/constants'
 import './EditItemModal.css'
 
 function EditItemModal({ isOpen, item, onClose, onItemUpdated }) {
   const [name, setName] = useState('')
+  const [category, setCategory] = useState('Lain-lain')
   const [description, setDescription] = useState('')
   const [unit, setUnit] = useState('pcs')
   const [stockAvailable, setStockAvailable] = useState(0)
@@ -39,6 +41,7 @@ function EditItemModal({ isOpen, item, onClose, onItemUpdated }) {
   useEffect(() => {
     if (isOpen && item) {
       setName(item.name || '')
+      setCategory(item.category || 'Lain-lain')
       setDescription(item.description || '')
       setUnit(item.unit || 'pcs')
       setStockAvailable(item.stock_available ?? 0)
@@ -95,6 +98,7 @@ function EditItemModal({ isOpen, item, onClose, onItemUpdated }) {
       // Payload data yang akan diperbarui
       const updatePayload = {
         name: name.trim(),
+        category: category || 'Lain-lain',
         description: description.trim() || null,
         unit: unit.trim() || 'pcs',
         stock_available: parsedStock,
@@ -204,6 +208,25 @@ function EditItemModal({ isOpen, item, onClose, onItemUpdated }) {
               required
               disabled={isSaving}
             />
+          </div>
+
+          {/* Input Kategori Barang */}
+          <div className="edit-form-group">
+            <label htmlFor="edit-item-category">Kategori Barang *</label>
+            <select
+              id="edit-item-category"
+              className="select-input"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={isSaving}
+              required
+            >
+              {ITEM_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {CATEGORY_ICONS[cat] || '📦'} {cat}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Input Deskripsi Barang */}

@@ -19,10 +19,12 @@ import PhotoUpload from './PhotoUpload'
 import { supabase } from '../lib/supabaseClient'
 import { uploadImageToStorage } from '../lib/storageService'
 import { syncTransactionToGoogle } from '../lib/googleSyncService'
+import { ITEM_CATEGORIES, CATEGORY_ICONS } from '../lib/constants'
 import './AddItemModal.css'
 
 function AddItemModal({ isOpen, onClose, onItemAdded }) {
   const [name, setName] = useState('')
+  const [category, setCategory] = useState('Lain-lain')
   const [description, setDescription] = useState('')
   const [stockAvailable, setStockAvailable] = useState(1)
   const [unit, setUnit] = useState('pcs')
@@ -66,6 +68,7 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
 
   const resetForm = () => {
     setName('')
+    setCategory('Lain-lain')
     setDescription('')
     setStockAvailable(1)
     setUnit('pcs')
@@ -112,6 +115,7 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
         .from('items')
         .insert({
           name: name.trim(),
+          category: category || 'Lain-lain',
           description: description.trim() || null,
           stock_available: parseInt(stockAvailable, 10),
           stock_in_use: 0,
@@ -218,15 +222,34 @@ function AddItemModal({ isOpen, onClose, onItemAdded }) {
             />
           </div>
 
+          {/* Kategori Barang */}
+          <div className="form-group">
+            <label htmlFor="item-category">Kategori Barang *</label>
+            <select
+              id="item-category"
+              className="select-input"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={isSubmitting}
+              required
+            >
+              {ITEM_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {CATEGORY_ICONS[cat] || '📦'} {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Deskripsi Barang */}
           <div className="form-group">
-            <label htmlFor="item-desc">Deskripsi / Spesifikasi (Opsional)</label>
+            <label htmlFor="item-desc">Deskripsi / Lokasi Rak (Opsional)</label>
             <textarea
               id="item-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Contoh: Warna hitam, support 4K 60Hz, ada di lemari B2..."
-              rows={3}
+              rows={2}
               disabled={isSubmitting}
             />
           </div>
