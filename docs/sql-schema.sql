@@ -16,6 +16,7 @@
 CREATE TABLE IF NOT EXISTS items (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   name            text        NOT NULL,
+  category        text        NOT NULL DEFAULT 'Lain-lain',
   description     text,
   photo_url       text,
 
@@ -238,8 +239,10 @@ $$;
 -- -----------------------------------------------------------------------------
 -- 6. VIEW: active_loans
 --    Melihat siapa yang masih membawa/memakai barang inventaris (belum dikembalikan)
+--    Gunakan 'security_invoker = true' agar mematuhi aturan RLS (Supabase Best Practice)
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE VIEW active_loans AS
+CREATE OR REPLACE VIEW active_loans 
+WITH (security_invoker = true) AS
 SELECT 
     t.actor_name,
     t.event_name,
@@ -259,8 +262,10 @@ HAVING (
 -- -----------------------------------------------------------------------------
 -- 6.1 VIEW: active_deposits
 --     Melihat daftar barang titipan yang saat ini masih tersimpan (belum diambil)
+--     Gunakan 'security_invoker = true' agar mematuhi aturan RLS (Supabase Best Practice)
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE VIEW active_deposits AS
+CREATE OR REPLACE VIEW active_deposits 
+WITH (security_invoker = true) AS
 SELECT 
     t.id,
     t.actor_name AS depositor_name,
@@ -414,5 +419,68 @@ DROP POLICY IF EXISTS "Public Upload transaction-proofs" ON storage.objects;
 CREATE POLICY "Public Upload transaction-proofs" 
   ON storage.objects FOR INSERT 
   WITH CHECK (bucket_id = 'transaction-proofs');
+
+
+-- -----------------------------------------------------------------------------
+-- 9. MIGRASI 15 KATEGORI BARANG & SCRIPT AUTO-CATEGORIZE CERDAS (Fase 6.11)
+--    Jalankan query ini di Supabase SQL Editor untuk database yang sudah aktif!
+-- -----------------------------------------------------------------------------
+
+-- 1. Tambahkan kolom 'category' ke tabel items jika belum ada
+ALTER TABLE items 
+ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'Lain-lain';
+
+CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
+
+-- 2. Query Auto-Categorization Berbasis Kata Kunci (Keyword Matching)
+--    Jalankan query ini untuk otomatis mengelompokkan barang yang sudah ada ke 15 kategori:
+UPDATE items 
+SET category = CASE 
+  -- Alat Potong
+  WHEN name ILIKE '%gunting%' OR name ILIKE '%cutter%' OR name ILIKE '%pisau%' OR name ILIKE '%silet%' THEN 'Alat Potong'
+  
+  -- Kertas
+  WHEN name ILIKE '%kertas%' OR name ILIKE '%hvs%' OR name ILIKE '%karton%' OR name ILIKE '%asturo%' OR name ILIKE '%origami%' OR name ILIKE '%buffalo%' OR name ILIKE '%manila%' OR name ILIKE '%crepe%' OR name ILIKE '%krep%' THEN 'Kertas'
+  
+  -- Alat Tulis
+  WHEN name ILIKE '%spidol%' OR name ILIKE '%pulpen%' OR name ILIKE '%pensil%' OR name ILIKE '%penghapus%' OR name ILIKE '%tipex%' OR name ILIKE '%tip-ex%' OR name ILIKE '%penggaris%' OR name ILIKE '%marker%' OR name ILIKE '%boardmarker%' OR name ILIKE '%pen%' THEN 'Alat Tulis'
+  
+  -- Lem & Perekat
+  WHEN name ILIKE '%lem%' OR name ILIKE '%perekat%' OR name ILIKE '%double tape%' OR name ILIKE '%lakban%' OR name ILIKE '%solasi%' OR name ILIKE '%isolasi%' OR name ILIKE '%selotip%' OR name ILIKE '%glue%' OR name ILIKE '%fox%' OR name ILIKE '%glukol%' THEN 'Lem & Perekat'
+  
+  -- Tali
+  WHEN name ILIKE '%tali%' OR name ILIKE '%rafia%' OR name ILIKE '%tambang%' OR name ILIKE '%kur%' OR name ILIKE '%rami%' OR name ILIKE '%goni%' THEN 'Tali'
+  
+  -- Pita
+  WHEN name ILIKE '%pita%' OR name ILIKE '%satin%' OR name ILIKE '%ribbon%' THEN 'Pita'
+  
+  -- Kain
+  WHEN name ILIKE '%kain%' OR name ILIKE '%flanel%' OR name ILIKE '%mori%' OR name ILIKE '%blacu%' OR name ILIKE '%katun%' OR name ILIKE '%taplak%' THEN 'Kain'
+  
+  -- Alat Mewarnai
+  WHEN name ILIKE '%cat%' OR name ILIKE '%kuas%' OR name ILIKE '%crayon%' OR name ILIKE '%krayon%' OR name ILIKE '%pewarna%' OR name ILIKE '%palet%' OR name ILIKE '%acrylic%' OR name ILIKE '%akrilik%' THEN 'Alat Mewarnai'
+  
+  -- Bola
+  WHEN name ILIKE '%bola%' OR name ILIKE '%pingpong%' OR name ILIKE '%futsal%' OR name ILIKE '%voli%' OR name ILIKE '%basket%' THEN 'Bola'
+  
+  -- Pipa
+  WHEN name ILIKE '%pipa%' OR name ILIKE '%pralon%' OR name ILIKE '%pvc%' OR name ILIKE '%selang%' THEN 'Pipa'
+  
+  -- Banner
+  WHEN name ILIKE '%banner%' OR name ILIKE '%spanduk%' OR name ILIKE '%backdrop%' OR name ILIKE '%standing banner%' OR name ILIKE '%x-banner%' OR name ILIKE '%roll banner%' THEN 'Banner'
+  
+  -- Aksesoris
+  WHEN name ILIKE '%aksesoris%' OR name ILIKE '%bando%' OR name ILIKE '%topeng%' OR name ILIKE '%mahkota%' OR name ILIKE '%gelang%' OR name ILIKE '%kalung%' OR name ILIKE '%peniti%' OR name ILIKE '%jarum%' OR name ILIKE '%klip%' THEN 'Aksesoris'
+  
+  -- Alat Makan
+  WHEN name ILIKE '%piring%' OR name ILIKE '%gelas%' OR name ILIKE '%sendok%' OR name ILIKE '%garpu%' OR name ILIKE '%mangkuk%' OR name ILIKE '%nampan%' OR name ILIKE '%cangkir%' OR name ILIKE '%sedotan%' OR name ILIKE '%kotak makan%' THEN 'Alat Makan'
+  
+  -- Elektronik & Sound
+  WHEN name ILIKE '%mic%' OR name ILIKE '%microphone%' OR name ILIKE '%speaker%' OR name ILIKE '%sound%' OR name ILIKE '%kabel%' OR name ILIKE '%proyektor%' OR name ILIKE '%hdmi%' OR name ILIKE '%baterai%' OR name ILIKE '%charger%' OR name ILIKE '%colokan%' OR name ILIKE '%terminal%' OR name ILIKE '%toa%' OR name ILIKE '%megafon%' THEN 'Elektronik & Sound'
+  
+  -- Default
+  ELSE 'Lain-lain'
+END;
+
 
 

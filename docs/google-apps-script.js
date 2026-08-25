@@ -196,13 +196,11 @@ function handleSyncInventoryCatalog(spreadsheet, items) {
     sheet = spreadsheet.insertSheet('Rekap Stok Barang', 1);
   }
 
-  // Bersihkan data lama di sheet Rekap (TIDAK menyentuh sheet Log Transaksi)
-  sheet.clear();
-
   // Header Tabel Rekap Stok Lengkap
   var headers = [
     'No',
     'Nama Barang',
+    'Kategori',
     'Deskripsi',
     'Stok Siap Pakai',
     'Sedang Dipakai / Dipinjam',
@@ -213,8 +211,6 @@ function handleSyncInventoryCatalog(spreadsheet, items) {
     'Salinan Foto Google Drive',
     'Terakhir Diperbarui (WIB)'
   ];
-  sheet.appendRow(headers);
-  styleHeaderRow(sheet, headers.length, '#0f766e');
 
   var nowFormatted = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'dd-MM-yyyy HH:mm:ss') + ' WIB';
 
@@ -240,6 +236,7 @@ function handleSyncInventoryCatalog(spreadsheet, items) {
     rows.push([
       i + 1,
       item.name || '-',
+      item.category || 'Lain-lain',
       item.description || '-',
       available,
       inUse,
@@ -252,8 +249,38 @@ function handleSyncInventoryCatalog(spreadsheet, items) {
     ]);
   }
 
+  // Bersihkan data lama HANYA setelah data baru siap ditulis (mencegah sheet kosong jika ada error)
+  sheet.clear();
+  sheet.appendRow(headers);
+  styleHeaderRow(sheet, headers.length, '#0f766e');
+
   if (rows.length > 0) {
     sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+
+    // Pasang aturan Dropdown (Data Validation) 15 Kategori otomatis di Kolom C (Kategori)
+    var categoryList = [
+      'Kertas',
+      'Kain',
+      'Alat Tulis',
+      'Alat Mewarnai',
+      'Lem & Perekat',
+      'Alat Potong',
+      'Tali',
+      'Pita',
+      'Bola',
+      'Pipa',
+      'Banner',
+      'Aksesoris',
+      'Alat Makan',
+      'Elektronik & Sound',
+      'Lain-lain'
+    ];
+    var categoryValidation = SpreadsheetApp.newDataValidation()
+      .requireValueInList(categoryList, true)
+      .setAllowInvalid(true)
+      .build();
+    sheet.getRange(2, 3, rows.length, 1).setDataValidation(categoryValidation);
+
     sheet.autoResizeColumns(1, headers.length);
   }
 
@@ -326,14 +353,15 @@ function saveCatalogPhotoToDrive(photoUrl, itemName) {
   var folder = getOrCreateDriveFolder('Gudang RTB - Foto Barang Katalog');
 
   var cleanItem = (itemName || 'Barang').replace(/[^a-zA-Z0-9]/g, '_');
-  var fileName = 'Katalog_' + cleanItem + '.webp';
+  var fileName = cleanItem + '.webp';
+  var oldPrefixFileName = 'Katalog_' + cleanItem + '.webp';
 
-  // Cek apakah file sudah pernah dibackup di folder tersebut
+  // 1. Cek apakah file dengan nama baru (tanpa Katalog_) sudah ada
   var existingFiles = folder.getFilesByName(fileName);
   if (existingFiles.hasNext()) {
     var primaryFile = existingFiles.next();
     
-    // Jika sebelumnya sempat ada duplikat, pindahkan file duplikat berlebih ke Trash otomatis
+    // Jika ada duplikat berlebih, pindahkan ke Trash
     while (existingFiles.hasNext()) {
       var extraDuplicate = existingFiles.next();
       extraDuplicate.setTrashed(true);
@@ -342,6 +370,21 @@ function saveCatalogPhotoToDrive(photoUrl, itemName) {
     return primaryFile.getUrl();
   }
 
+  // 2. Jika ada file versi lama yang masih memakai awalan 'Katalog_', ganti namanya menjadi nama baru
+  var oldFiles = folder.getFilesByName(oldPrefixFileName);
+  if (oldFiles.hasNext()) {
+    var oldFile = oldFiles.next();
+    oldFile.setName(fileName);
+    
+    while (oldFiles.hasNext()) {
+      var extraOld = oldFiles.next();
+      extraOld.setTrashed(true);
+    }
+    
+    return oldFile.getUrl();
+  }
+
+  // 3. Jika belum pernah ada sama sekali, unduh dan buat file baru
   var response = UrlFetchApp.fetch(photoUrl);
   var imageBlob = response.getBlob();
   imageBlob.setName(fileName);
