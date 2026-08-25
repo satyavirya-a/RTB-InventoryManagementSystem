@@ -1,0 +1,3 @@
+# Block all web crawlers and search engine bots from indexing this internal app
+User-agent: *
+Disallow: /
