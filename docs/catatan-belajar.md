@@ -1240,3 +1240,143 @@ Dalam mendesain antarmuka modal form untuk perangkat bergerak (*mobile device*):
 - **Solusi**: Gunakan **Segmented Control Tab** bergaya iOS/macOS berukuran tinggi 44px:
   `[ 📦 Habis Pakai ]` vs `[ 🔄 Pinjam-Kembali ]`.
   Pendekatan ini menghemat >80px ruang vertikal modal, membuat seluruh form pas dalam satu tampilan layar tanpa perlu scrolling berlebihan.
+
+---
+
+## 12. Sistem 15 Kategori Barang & Multi-Criteria Client-Side Filtering (Fase 6.11)
+
+Fitur kategori barang dirancang untuk mempermudah navigasi panitia saat mencari barang di gudang yang memiliki puluhan hingga ratusan jenis item.
+
+```
+                   15 KATEGORI INVENTARIS GUDANG RTB
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ 📄 Kertas           🧵 Kain            ✏️ Alat Tulis     🎨 Alat Mewarnai │
+ │ 🧴 Lem & Perekat    ✂️ Alat Potong     🧶 Tali           🎀 Pita          │
+ │ ⚽ Bola             🪠 Pipa            🚩 Banner         💍 Aksesoris     │
+ │ 🍽️ Alat Makan      🔊 Elektronik      📦 Lain-lain                       │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+
+### A. Keputusan Arsitektur: Kolom `category text` vs Tabel Relasi Terpisah
+- **Pendekatan yang Dipilih**: Menambahkan kolom `category text NOT NULL DEFAULT 'Lain-lain'` langsung pada tabel `items`.
+- **Alasan Teknis (*Engineering Rationale*)**:
+  1. **Menghindari Over-Normalization**: Inventaris event ini memiliki kategori tetap (15 kategori fungsional). Membuat tabel `categories` terpisah + relasi *foreign key* `category_id` akan menambah beban `JOIN` query di setiap fetch katalog tanpa memberikan keuntungan fungsional nyata untuk skala MVP.
+  2. **Single Source of Truth di Frontend**: Daftar 15 kategori didefinisikan secara deklaratif di `src/lib/constants.js` (`ITEM_CATEGORIES` dan `CATEGORY_ICONS`), sehingga frontend dan database selalu selaras.
+
+### B. Menjaga Keamanan Data yang Sudah Ada (*Zero-Downtime Schema Evolution*)
+Ketika skema database yang sudah berisi data aktif dimodifikasi:
+```sql
+ALTER TABLE items 
+ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'Lain-lain';
+```
+Dengan klausa `NOT NULL DEFAULT 'Lain-lain'`, PostgreSQL secara otomatis mengisi seluruh baris data yang sudah ada sebelumnya dengan nilai `'Lain-lain'` tanpa menimbulkan error nilai `NULL` dan tanpa merusak aplikasi yang sedang berjalan.
+
+### C. Strategi Pengelompokan Data: SQL Auto-Categorize vs Kurasi Manual
+Untuk mengelompokkan data yang sudah terlanjur masuk, kita memiliki 2 pendekatan:
+
+1. **Otomatis dalam 1 Detik via SQL Pattern Matching (`ILIKE`)**:
+   Kita menjalankan query `UPDATE items SET category = CASE ... END` di SQL Editor Supabase. Query ini membaca kata kunci dari nama barang:
+   - Nama mengandung `'gunting'`, `'cutter'` ➔ otomatis dikelompokkan ke `'Alat Potong'`.
+   - Nama mengandung `'spidol'`, `'pulpen'`, `'pensil'` ➔ otomatis dikelompokkan ke `'Alat Tulis'`.
+   - Nama mengandung `'double tape'`, `'lakban'`, `'lem'` ➔ otomatis dikelompokkan ke `'Lem & Perekat'`.
+   - Nama mengandung `'mic'`, `'speaker'`, `'kabel'` ➔ otomatis dikelompokkan ke `'Elektronik & Sound'`.
+2. **Kurasi Presisi Manual via UI**:
+   PIC Gudang dapat membuka kartu barang di web kapan saja, mengklik tombol **Edit (✏️)**, dan memilih kategori yang diinginkan dari dropdown `<select>`.
+
+### D. Arsitektur Filter Multi-Kriteria di React Hook (`useItems.js`)
+Pencarian barang di katalog menggabungkan 2 kriteria independen menggunakan `useMemo`:
+
+```javascript
+const filteredItems = useMemo(() => {
+  return items.filter((item) => {
+    // 1. Kriteria Kategori
+    const itemCategory = item.category || 'Lain-lain'
+    const matchesCategory = selectedCategory === 'all' || itemCategory === selectedCategory
+
+    // 2. Kriteria Teks Pencarian (Nama atau Deskripsi)
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+
+    return matchesCategory && matchesSearch
+  })
+}, [items, selectedCategory, searchQuery])
+```
+
+**Karakteristik Kinerja**:
+- Menggunakan `useMemo` memastikan filter komputasi hanya dihitung ulang saat `items`, `selectedCategory`, atau `searchQuery` berubah nilai, mencegah re-filtering yang tidak perlu pada setiap render siklus komponen.
+- Menghitung `categoryCounts` dinamis sehingga setiap pill kategori menampilkan angka real-time berapa banyak barang yang tersedia di kategori tersebut.
+
+### E. Desain UX: *Horizontal Scrollable Filter Pills*
+Di perangkat mobile (HP panitia saat acara):
+- Category bar diletakkan tepat di bawah search bar dengan gaya *pill chips*.
+- Menggunakan CSS `-webkit-overflow-scrolling: touch` dan `scrollbar-width: thin` agar panitia bisa menggeser (*swipe*) daftar kategori dengan sangat mulus menggunakan jempol.
+- Pill aktif diberi warna aksen primer tegas dan bayangan halus (*ambient glow*) agar status filter yang sedang aktif langsung terbaca secara visual.
+
+### F. Integrasi Menyeluruh (*End-to-End Data Pipeline*)
+```
+[Tambah/Edit Barang] 
+        ↓ (Input Kategori)
+[Supabase PostgreSQL: items.category] 
+        ↓ (Realtime Fetch / useItems)
+[ItemCard Badge & ItemDetailModal Tag] 
+        ↓ (Auto-Sync Fire & Forget)
+[Google Spreadsheet: Sheet "Rekap Stok Barang" - Kolom "Kategori"]
+```
+Dengan arsitektur ini, seluruh saluran data dari form, database, katalog, hingga salinan cadangan Google Spreadsheet tetap 100% konsisten dan terkelompok dengan rapi.
+
+---
+
+## 13. Supabase Security Advisor (Security Invoker Views) & Otomasi Dropdown Chips di Google Spreadsheet
+
+### A. Mengapa Supabase Advisor Menandai Security Definer View sebagai *Critical Issue*?
+Saat kamu membuat PostgreSQL View (seperti `active_loans` dan `active_deposits`), secara default PostgreSQL menjalankannya dengan sifat **`SECURITY DEFINER`**.
+
+```
+                           HAK AKSES VIEW POSTGRESQL
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🔴 SECURITY DEFINER (Bawaan Lama):                                          │
+│    View dijalankan dengan hak akses si Pembuat View (Superuser/Admin).      │
+│    Bahaya: Query ke View bisa MELEWATI (bypass) aturan RLS tabel dasar.     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🟢 SECURITY INVOKER (Standar Keamanan Supabase Modern):                     │
+│    View dijalankan dengan hak akses Pengguna yang Memanggil (User Login).   │
+│    Aman: Aturan Row Level Security (RLS) tetap divalidasi dengan ketat.     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Cara Memperbaikinya:
+```sql
+ALTER VIEW public.active_loans SET (security_invoker = true);
+ALTER VIEW public.active_deposits SET (security_invoker = true);
+```
+Dengan menyetel `security_invoker = true`, View akan selalu mematuhi batasan izin baris (RLS) dari user yang sedang melakukan request ke API Supabase.
+
+---
+
+### B. Otomasi Dropdown Chips (Data Validation) di Google Spreadsheet via Apps Script
+Agar data backup di sheet *"Rekap Stok Barang"* tampil rapi dengan chip dropdown interaktif berwarna untuk setiap kategori:
+
+```javascript
+// Google Apps Script API: Data Validation Builder
+var categoryList = [
+  'Kertas', 'Kain', 'Alat Tulis', 'Alat Mewarnai',
+  'Lem & Perekat', 'Alat Potong', 'Tali', 'Pita',
+  'Bola', 'Pipa', 'Banner', 'Aksesoris',
+  'Alat Makan', 'Elektronik & Sound', 'Lain-lain'
+];
+
+var categoryValidation = SpreadsheetApp.newDataValidation()
+  .requireValueInList(categoryList, true) // true = render dropdown list in cell
+  .setAllowInvalid(true)
+  .build();
+
+// Terapkan aturan ke seluruh baris Kolom C (Kategori)
+sheet.getRange(2, 3, rows.length, 1).setDataValidation(categoryValidation);
+```
+
+#### Keuntungan Fitur Ini:
+1. **Visual yang Elegan**: Google Spreadsheet otomatis mengubah nilai teks menjadi **Pill Chips warna-warni** dengan panah dropdown (seperti pada screenshot).
+2. **Koreksi Langsung di Sheet**: Jika admin ingin mengubah kategori suatu barang langsung di Google Spreadsheet, cukup klik dropdown tersebut tanpa perlu mengetik manual (mencegah typo).
+3. **Otomatis Terpasang Setiap Kali Sync**: Script Google Apps Script secara otomatis memperbarui aturan validasi ini setiap kali kamu menekan tombol *"Sync Rekap Sheet"* di web.
+
+

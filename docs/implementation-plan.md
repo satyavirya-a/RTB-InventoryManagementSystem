@@ -37,6 +37,7 @@
 | Fase 6.8 — Deep Linking Detail Peminjam ke Riwayat | ✅ Selesai | 2026-08-15 |
 | Fase 6.9 — Edit Data Barang, Foto Katalog & Koreksi Stok | ✅ Selesai | 2026-08-15 |
 | Fase 6.10 — Redesign Form Kompak & Dropdown Responsif | ✅ Selesai | 2026-08-15 |
+| Fase 6.11 — Sistem 15 Kategori Barang & Filter Interaktif | ✅ Selesai | 2026-08-25 |
 | Fase 7 — Autentikasi & RLS | ⬜ Belum dimulai | — |
 | Fase 8 — Testing & Polish UI | ⬜ Belum dimulai | — |
 | Fase 9 — Deployment ke Vercel | ⬜ Belum dimulai | — |
@@ -744,6 +745,30 @@ git commit -m "feat: integrasi auto-backup transaksi ke Google Sheets & Google D
 - `src/pages/Dashboard.jsx` & `Dashboard.css` [MODIFY]: Selector tampilan responsif (tab di desktop, dropdown di mobile)
 - `src/index.css` [MODIFY]: Token CSS untuk `.compact-stock-unit-grid`, `.quantity-stepper`, `.compact-segmented-control`, dan `.compact-quick-units`
 - `docs/catatan-belajar.md` [MODIFY]: Dokumentasi Bab 11 tentang Desain Form Kompak & Responsif
+
+---
+
+## Fase 6.11 — Sistem 15 Kategori Barang & Filter Interaktif ✅
+
+**Tujuan:**
+1. Mengelompokkan seluruh inventaris ke dalam 15 kategori fungsional (*Kertas, Kain, Alat Tulis, Alat Mewarnai, Lem & Perekat, Alat Potong, Tali, Pita, Bola, Pipa, Banner, Aksesoris, Alat Makan, Elektronik & Sound, Lain-lain*).
+2. Menyediakan **Category Filter Pills Bar** yang scrollable secara horizontal di halaman Katalog dengan indikator jumlah barang aktif per kategori.
+3. Menampilkan **Category Tag Badge** visual dengan emoji pada kartu barang (`ItemCard`) dan modal detail barang (`ItemDetailModal`).
+4. Menambahkan input dropdown kategori pada modal Tambah Barang (`AddItemModal`) dan Edit Barang (`EditItemModal`).
+5. Menyediakan skrip SQL migrasi (`ALTER TABLE items ADD COLUMN IF NOT EXISTS category ...`) dan **Keyword-based Bulk Auto-Categorization** di Supabase.
+6. Menyinkronkan kolom Kategori ke Google Spreadsheet pada sheet "Rekap Stok Barang".
+
+### File yang Dimodifikasi:
+- `src/lib/constants.js` [MODIFY]: Menambahkan konstanta `ITEM_CATEGORIES` (15 kategori) dan `CATEGORY_ICONS`
+- `src/hooks/useItems.js` [MODIFY]: Menambahkan state `selectedCategory`, `categoryCounts`, dan multi-criteria filtering
+- `src/pages/CatalogPage.jsx` & `src/index.css` [MODIFY]: Integrasi Category Filter Bar, pills active state, dan badge counter
+- `src/components/ItemCard.jsx` & `ItemCard.css` [MODIFY]: Badge kategori visual dengan emoji di sudut kiri atas foto
+- `src/components/ItemDetailModal.jsx` & `ItemDetailModal.css` [MODIFY]: Tag kategori di header detail modal
+- `src/components/AddItemModal.jsx` [MODIFY]: Dropdown pilihan kategori barang saat input barang baru
+- `src/components/EditItemModal.jsx` [MODIFY]: Dropdown pilihan kategori barang saat edit data barang
+- `docs/google-apps-script.js` [MODIFY]: Menambahkan kolom Kategori ke sheet "Rekap Stok Barang"
+- `docs/sql-schema.sql` [MODIFY]: Skrip migrasi database dan query otomatis pengelompokan kata kunci
+- `docs/catatan-belajar.md` [MODIFY]: Bab 12: Arsitektur Multi-Criteria Filtering & Database Schema Migration
 
 ---
 
